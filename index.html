@@ -22,20 +22,21 @@
 html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;color:var(--text);font-size:14px}
 body{display:flex;flex-direction:column}
 
-/* ── 로그인 ── */
+/* ── 팀 선택 화면 ── */
 .login-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--blue)}
-.login-box{background:#fff;border-radius:20px;padding:32px 24px;width:100%;max-width:340px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.login-box{background:#fff;border-radius:20px;padding:28px 20px;width:100%;max-width:340px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
 .login-logo{text-align:center;margin-bottom:20px}
 .login-logo .ic{font-size:40px;display:block;margin-bottom:8px}
 .login-logo h1{font-size:18px;font-weight:700;color:var(--blue)}
 .login-logo p{font-size:11px;color:var(--muted);margin-top:3px}
-.login-field{margin-bottom:12px}
-.login-field label{display:block;font-size:11px;color:var(--muted);font-weight:700;margin-bottom:5px}
-.login-field input{width:100%;padding:11px 14px;font-size:14px;border:1.5px solid var(--bdr);border-radius:var(--rs);font-family:inherit;outline:none;-webkit-appearance:none}
-.login-field input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,86,160,.1)}
-.login-btn{width:100%;padding:13px;font-size:14px;font-weight:700;background:var(--blue);color:#fff;border:none;border-radius:var(--rs);cursor:pointer;font-family:inherit;margin-top:4px}
-.login-btn:active{background:var(--blue-dk)}
-.login-err{font-size:11px;color:var(--red);text-align:center;margin-top:8px;min-height:16px}
+.team-btn{width:100%;display:flex;align-items:center;gap:12px;padding:14px 16px;border:1.5px solid var(--bdr);border-radius:var(--r);background:#fff;cursor:pointer;font-family:inherit;margin-bottom:10px;transition:all .15s;text-align:left}
+.team-btn:last-child{margin-bottom:0}
+.team-btn:active{background:var(--blue-lt);border-color:var(--blue);transform:scale(.98)}
+.team-btn-ic{font-size:24px;flex-shrink:0}
+.team-btn-txt{flex:1;display:flex;flex-direction:column;gap:2px}
+.team-btn-name{font-size:14px;font-weight:700;color:var(--text)}
+.team-btn-sub{font-size:10px;color:var(--muted)}
+.team-btn-arrow{font-size:20px;color:var(--muted);flex-shrink:0}
 
 /* ── HEADER ── */
 .hdr{background:var(--blue);padding:8px 14px;padding-top:calc(8px + var(--st));display:flex;align-items:center;gap:8px;flex-shrink:0;display:none}
@@ -126,6 +127,11 @@ body{display:flex;flex-direction:column}
 .prog-fill{height:100%;background:var(--blue);border-radius:3px;transition:width .3s;width:0%}
 .prog-txt{font-size:9px;color:var(--blue);margin-top:3px;font-weight:700}
 .sbar{padding:5px 10px;font-size:10px;color:var(--muted);background:#f8f9fc;border-top:1px solid var(--bdr);min-height:24px}
+
+.date-group-hd{font-size:11px;font-weight:700;color:var(--blue);padding:8px 4px 4px;border-bottom:1px solid var(--blue-lt);margin-bottom:6px;margin-top:10px}
+.date-group-hd:first-child{margin-top:0}
+.filter-row{display:flex;gap:5px;align-items:center;margin-bottom:7px;flex-wrap:wrap}
+.filter-row input:focus{border-color:var(--blue)!important}
 
 /* ── 갤러리 ── */
 .gal-bar{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);padding:10px 12px;margin-bottom:8px}
@@ -225,24 +231,34 @@ body{display:flex;flex-direction:column}
     <div class="login-logo">
       <span class="ic">📷</span>
       <h1>LH 보상팀 현장조사</h1>
-      <p>현장 조사 및 보상 데이터 관리 시스템</p>
+      <p>울산사업본부 현장 조사 및 보상 데이터 관리</p>
     </div>
-    <div class="login-field">
-      <label>아이디</label>
-      <input id="loginId" type="text" placeholder="아이디 입력" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('loginPw').focus()">
-    </div>
-    <div class="login-field">
-      <label>비밀번호</label>
-      <input id="loginPw" type="password" placeholder="비밀번호 입력" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
-    </div>
-    <button class="login-btn" onclick="doLogin()">로그인</button>
-    <div class="login-err" id="loginErr"></div>
+    <p style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:14px;font-weight:600">소속 팀을 선택해주세요</p>
+    <button class="team-btn" onclick="selectTeam('sunho980')">
+      <span class="team-btn-ic">🏢</span>
+      <span class="team-btn-txt">
+        <span class="team-btn-name">울산사업본부 보상2팀</span>
+        <span class="team-btn-sub">현장조사 시스템 입장</span>
+      </span>
+      <span class="team-btn-arrow">›</span>
+    </button>
+    <button class="team-btn" onclick="selectTeam('lh1team')">
+      <span class="team-btn-ic">🏢</span>
+      <span class="team-btn-txt">
+        <span class="team-btn-name">울산사업본부 보상1팀</span>
+        <span class="team-btn-sub">현장조사 시스템 입장</span>
+      </span>
+      <span class="team-btn-arrow">›</span>
+    </button>
   </div>
 </div>
 
 <!-- ══ 앱 본체 ══ -->
 <div class="hdr" id="appHdr">
-  <div><h1>📷 LH 보상팀 현장조사</h1><p>현장 조사 및 보상 데이터 관리</p></div>
+  <div>
+    <h1>📷 LH 보상팀 현장조사</h1>
+    <p id="teamName" style="font-size:10px;color:rgba(255,255,255,.85);margin-top:2px;font-weight:600"></p>
+  </div>
   <div class="hdr-r">
     <span class="dot"></span>
     <span class="cloud-lbl">클라우드</span>
@@ -281,16 +297,6 @@ body{display:flex;flex-direction:column}
       </div>
       <div class="form-grid form-full" style="padding-top:0;padding-bottom:8px">
         <div class="field"><label>비고</label><input id="f-comment" placeholder="선택사항"></div>
-      </div>
-      <div class="draw-opts">
-        <label>도형 색</label>
-        <input type="color" id="polyColor" value="#ff3333">
-        <label>선 굵기</label>
-        <select id="lineW">
-          <option value="2">얇게</option>
-          <option value="3" selected>보통</option>
-          <option value="5">굵게</option>
-        </select>
       </div>
     </div>
 
@@ -337,6 +343,14 @@ body{display:flex;flex-direction:column}
       <div class="gal-bar-top">
         <span id="zipInfo" style="font-size:11px;color:var(--muted)">저장된 사진 ZIP 다운로드</span>
         <button class="zip-btn" onclick="downloadZip()">📦 ZIP</button>
+      </div>
+      <!-- 필터 -->
+      <div class="filter-row">
+        <input type="date" id="filterDateFrom" onchange="applyFilter()" placeholder="시작일" style="flex:1;padding:6px 8px;font-size:11px;border:1px solid var(--bdr);border-radius:6px;font-family:inherit;outline:none">
+        <span style="color:var(--muted);font-size:11px">~</span>
+        <input type="date" id="filterDateTo" onchange="applyFilter()" placeholder="종료일" style="flex:1;padding:6px 8px;font-size:11px;border:1px solid var(--bdr);border-radius:6px;font-family:inherit;outline:none">
+        <input type="text" id="filterAddr" oninput="applyFilter()" placeholder="소재지/지번 검색" style="flex:1.5;padding:6px 8px;font-size:11px;border:1px solid var(--bdr);border-radius:6px;font-family:inherit;outline:none">
+        <button onclick="clearFilter()" style="padding:6px 9px;font-size:10px;font-weight:700;border:1px solid var(--bdr);border-radius:6px;background:#f3f4f6;color:var(--muted);cursor:pointer;font-family:inherit;white-space:nowrap">초기화</button>
       </div>
       <div class="gal-bar-btns">
         <button class="gal-ctrl-btn" onclick="toggleSelectMode()" id="selectModeBtn">☑ 선택</button>
@@ -400,7 +414,8 @@ body{display:flex;flex-direction:column}
 <script>
 // ══ 계정 설정 ══
 const ACCOUNTS = {
-  'sunho980': 'tjsgh980'
+  'sunho980': { pw:'tjsgh980', team:'울산사업본부 보상2팀' },
+  'lh1team':  { pw:'lh1team',  team:'울산사업본부 보상1팀' }
 };
 
 // ══ Firebase ══
@@ -432,25 +447,18 @@ const oC=document.getElementById('overlayCanvas');
 const mX=mC.getContext('2d'), oX=oC.getContext('2d');
 
 const DEF={
-  jiok:['전','답','대','임야','도로','구거','하천','잡종지'],
-  usage:['농경지','주거용','상업용','공업용','나지','임야','도로','하천']
+  jiok:['전','답','대','구','도','임'],
+  usage:['전','답','대','구','도','임']
 };
 const getOpts=k=>{try{const r=localStorage.getItem('lh_opts_'+k);return r?JSON.parse(r):DEF[k];}catch(e){return DEF[k];}};
 const setOpts=(k,v)=>localStorage.setItem('lh_opts_'+k,JSON.stringify(v));
 
 // ══ 로그인 ══
-function doLogin(){
-  const id=document.getElementById('loginId').value.trim();
-  const pw=document.getElementById('loginPw').value;
-  if(!id||!pw){document.getElementById('loginErr').textContent='아이디와 비밀번호를 입력해주세요.';return;}
-  if(ACCOUNTS[id]===pw){
-    currentUser=id;
-    localStorage.setItem('lh_session', id);
-    showApp();
-  } else {
-    document.getElementById('loginErr').textContent='아이디 또는 비밀번호가 틀렸습니다.';
-    document.getElementById('loginPw').value='';
-  }
+// ══ 팀 선택 ══
+function selectTeam(id){
+  currentUser=id;
+  localStorage.setItem('lh_session', id);
+  showApp();
 }
 
 function doLogout(){
@@ -461,9 +469,6 @@ function doLogout(){
   document.getElementById('appHdr').style.display='none';
   document.getElementById('appTabs').style.display='none';
   document.getElementById('appScroll').style.display='none';
-  document.getElementById('loginId').value='';
-  document.getElementById('loginPw').value='';
-  document.getElementById('loginErr').textContent='';
 }
 
 function showApp(){
@@ -472,15 +477,17 @@ function showApp(){
   document.getElementById('appTabs').style.display='flex';
   document.getElementById('appScroll').style.display='block';
   document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
+  // 팀명 표시
+  const acc=ACCOUNTS[currentUser];
+  document.getElementById('teamName').textContent=acc?acc.team:'';
   updateOv(); renderChips('jiok'); renderChips('usage');
-  // Firestore에서 불러오기
   loadFromFirestore();
 }
 
 // 자동 로그인
 window.addEventListener('DOMContentLoaded',()=>{
   const saved=localStorage.getItem('lh_session');
-  if(saved && ACCOUNTS[saved]!==undefined){
+  if(saved && ACCOUNTS[saved]){
     currentUser=saved;
     showApp();
   }
@@ -736,7 +743,7 @@ oC.addEventListener('mousemove',e=>{if(!bgImg||polyClosed||!points.length)return
 
 function drawOv(mouse){
   oX.clearRect(0,0,oC.width,oC.height); if(!points.length)return;
-  const color=document.getElementById('polyColor').value,lw=parseInt(document.getElementById('lineW').value);
+  const color='#ff3333', lw=3;
   oX.save();oX.strokeStyle=color;oX.lineWidth=lw;oX.lineJoin='round';oX.lineCap='round';
   oX.beginPath();oX.moveTo(points[0].x,points[0].y);
   for(let i=1;i<points.length;i++)oX.lineTo(points[i].x,points[i].y);
@@ -877,8 +884,8 @@ function savePhoto(){
     const ex=ec.getContext('2d');ex.drawImage(origImg,0,0,W,H);
     if(points.length>=2){
       const rx=W/bgImg.dw,ry=H/bgImg.dh;
-      const color=document.getElementById('polyColor').value;
-      const lw=Math.max(2,parseInt(document.getElementById('lineW').value)*Math.min(rx,ry));
+      const color='#ff3333';
+      const lw=Math.max(2,3*Math.min(rx,ry));
       ex.strokeStyle=color;ex.lineWidth=lw;ex.lineJoin='round';ex.lineCap='round';
       ex.beginPath();
       ex.moveTo((points[0].x-bgImg.dx)*rx,(points[0].y-bgImg.dy)*ry);
@@ -965,6 +972,52 @@ async function downloadZip(){
     toast('✅ ZIP 완료 ('+photos.length+'장)','ok');
   }catch(e){ hideProg(); toast('ZIP 실패: '+e.message,'err'); }
 }
+// ══ 필터 ══
+let filteredPhotos=[];
+
+function applyFilter(){
+  const from=document.getElementById('filterDateFrom').value;
+  const to=document.getElementById('filterDateTo').value;
+  const addr=document.getElementById('filterAddr').value.trim().toLowerCase();
+
+  filteredPhotos=photos.filter(p=>{
+    const d=p.date||'';
+    if(from && d<from) return false;
+    if(to && d>to) return false;
+    if(addr){
+      const hay=((p.addr||'')+' '+(p.jibun||'')).toLowerCase();
+      if(!hay.includes(addr)) return false;
+    }
+    return true;
+  });
+  renderGallery();
+}
+
+function clearFilter(){
+  document.getElementById('filterDateFrom').value='';
+  document.getElementById('filterDateTo').value='';
+  document.getElementById('filterAddr').value='';
+  filteredPhotos=[...photos];
+  renderGallery();
+}
+
+function getDisplayPhotos(){
+  const from=document.getElementById('filterDateFrom')?.value;
+  const to=document.getElementById('filterDateTo')?.value;
+  const addr=document.getElementById('filterAddr')?.value.trim().toLowerCase();
+  if(!from&&!to&&!addr) return photos;
+  return photos.filter(p=>{
+    const d=p.date||'';
+    if(from && d<from) return false;
+    if(to && d>to) return false;
+    if(addr){
+      const hay=((p.addr||'')+' '+(p.jibun||'')).toLowerCase();
+      if(!hay.includes(addr)) return false;
+    }
+    return true;
+  });
+}
+
 // ══ GALLERY ══
 function switchTab(t){
   document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('on',(t==='survey'?0:1)===i));
@@ -1021,31 +1074,67 @@ function deleteAll(){
 }
 function renderGallery(){
   const el=document.getElementById('galContent');
-  if(!photos.length){el.innerHTML='<div class="empty"><div class="ic">🖼</div><p>저장된 사진이 없습니다</p></div>';return;}
+  const list=getDisplayPhotos();
+
+  if(!list.length){
+    el.innerHTML=photos.length?
+      '<div class="empty"><div class="ic">🔍</div><p>검색 결과가 없습니다</p></div>':
+      '<div class="empty"><div class="ic">🖼</div><p>저장된 사진이 없습니다</p></div>';
+    return;
+  }
+
+  // 날짜별 그룹핑
+  const groups={};
+  list.forEach((p,idx)=>{
+    const d=p.date||'날짜 없음';
+    if(!groups[d]) groups[d]=[];
+    groups[d].push({p, origIdx:photos.indexOf(p)});
+  });
+
   const grid=document.createElement('div');
-  grid.className='gal-grid'+(selectMode?' select-mode':'');
-  grid.innerHTML=photos.map((p,i)=>`
-    <div class="gal-item${selectedIdx.has(i)?' selected':''}" onclick="selectMode?toggleSelect(${i}):openViewer(${i})">
-      <div class="sel-check">✓</div>
-      <img class="gal-thumb" id="thumb-${p.id}"
-        src="${p.origDataUrl||p.editDataUrl||''}"
-        alt="${p.fileName}"
-        onerror="this.classList.add('no-img')"
-        onload="this.classList.remove('no-img')">
-      <div class="gal-info">
-        <div class="gal-name">📄 ${p.fileName}</div>
-        <div class="gal-meta">${p.addr||'-'} ${p.jibun||''}<br>${p.jiok||'-'} · ${p.usage||'-'}<br>${p.date||''}</div>
-        <div class="gal-cloud ok">${p.origSaved?'☁️ 원본':''} ${p.editSaved?'✏️ 수정본':''}</div>
-      </div>
-      <div class="gal-acts" onclick="event.stopPropagation()">
-        <button class="g-btn g-btn-dl" onclick="dlOne(${i})">↓ 저장</button>
-        <button class="g-btn g-btn-del" onclick="delOne(${i})">삭제</button>
-      </div>
-    </div>`).join('');
-  el.innerHTML='';el.appendChild(grid);
+  let html='';
+  Object.keys(groups).sort((a,b)=>b.localeCompare(a)).forEach(date=>{
+    html+=`<div class="date-group-hd">📅 ${date} · ${groups[date].length}장</div>`;
+    html+='<div class="gal-grid'+(selectMode?' select-mode':'')+'">';
+    groups[date].forEach(({p,origIdx:i})=>{
+      html+=`
+        <div class="gal-item${selectedIdx.has(i)?' selected':''}" onclick="selectMode?toggleSelect(${i}):openViewer(${i})">
+          <div class="sel-check">✓</div>
+          <img class="gal-thumb" id="thumb-${p.id}"
+            src="${p.origDataUrl||p.editDataUrl||''}"
+            alt="${p.fileName}"
+            onerror="this.classList.add('no-img')"
+            onload="this.classList.remove('no-img')">
+          <div class="gal-info">
+            <div class="gal-name">📄 ${p.fileName}</div>
+            <div class="gal-meta">${p.addr||'-'} ${p.jibun||''}<br>${p.jiok||'-'} · ${p.usage||'-'}</div>
+            <div class="gal-cloud ok">${p.origSaved?'☁️ 원본':''} ${p.editSaved?'✏️ 수정본':''}</div>
+          </div>
+          <div class="gal-acts" onclick="event.stopPropagation()">
+            <button class="g-btn g-btn-dl" onclick="dlOne(${i})">↓ 저장</button>
+            <button class="g-btn g-btn-del" onclick="delOne(${i})">삭제</button>
+          </div>
+        </div>`;
+    });
+    html+='</div>';
+  });
+  grid.innerHTML=html;
+  el.innerHTML=''; el.appendChild(grid);
 
   // 썸네일 없으면 Firestore에서 불러오기
-  photos.forEach(async(p,i)=>{
+  list.forEach(async({p}={p:null})=>{
+    if(!p) return;
+    if(!p.origDataUrl && !p.editDataUrl && p.hasOrigData){
+      const data=await getImageData(p.id,'orig');
+      if(data){
+        p.origDataUrl=data;
+        const img=document.getElementById('thumb-'+p.id);
+        if(img){img.src=data;img.classList.remove('no-img');}
+      }
+    }
+  });
+  // 썸네일 로드 (list 기반)
+  list.forEach(async(p)=>{
     if(!p.origDataUrl && !p.editDataUrl && p.hasOrigData){
       const data=await getImageData(p.id,'orig');
       if(data){
