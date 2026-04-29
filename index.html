@@ -20,7 +20,8 @@
   --r:12px;--rs:7px;
   --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);
 }
-html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;color:var(--text);font-size:14px}
+html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;color:var(--text);font-size:14px;position:fixed;width:100%}
+body{display:flex;flex-direction:column;overscroll-behavior:none}
 body{display:flex;flex-direction:column}
 
 /* ── 팀 선택 화면 ── */
@@ -57,7 +58,7 @@ body{display:flex;flex-direction:column}
 .tab.on{color:var(--blue);border-bottom-color:var(--blue)}
 
 /* ── SCROLL ── */
-.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none}
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none;overscroll-behavior-y:contain}
 .panel{display:none;padding:12px 16px;padding-bottom:calc(24px + var(--sb));max-width:640px;margin:0 auto;width:100%}
 .panel.on{display:block}
 @media(min-width:480px){.panel{padding:14px 20px;}}
@@ -886,7 +887,7 @@ function gPos(e){
 }
 oC.addEventListener('click',e=>{if(!bgImg||polyClosed)return;points.push(gPos(e));setPt();drawOv();setSt('점 '+points.length+'개 — [완료]로 도형 완성!');});
 oC.addEventListener('touchend',e=>{e.preventDefault();if(!bgImg||polyClosed)return;const t=e.changedTouches[0];points.push(gPos({touches:[t]}));setPt();drawOv();setSt('점 '+points.length+'개 — [완료]로 도형 완성!');},{passive:false});
-oC.addEventListener('mousemove',e=>{if(!bgImg||polyClosed||!points.length)return;drawOv(gPos(e));});
+// 마우스 미리보기 선 제거
 
 function drawOv(mouse){
   oX.clearRect(0,0,oC.width,oC.height); if(!points.length)return;
@@ -894,17 +895,15 @@ function drawOv(mouse){
   oX.save();oX.strokeStyle=color;oX.lineWidth=lw;oX.lineJoin='round';oX.lineCap='round';
   oX.beginPath();oX.moveTo(points[0].x,points[0].y);
   for(let i=1;i<points.length;i++)oX.lineTo(points[i].x,points[i].y);
-  if(polyClosed)oX.closePath();else if(mouse)oX.lineTo(mouse.x,mouse.y);
+  if(polyClosed)oX.closePath();
   oX.stroke();
 
   // 점 표시 - 완료(polyClosed) 전에만 보임
   if(!polyClosed){
     points.forEach((p,i)=>{
-      // 점 원
       oX.beginPath();oX.arc(p.x,p.y,5,0,Math.PI*2);
       oX.fillStyle=color;oX.fill();
       oX.strokeStyle='#fff';oX.lineWidth=1.5;oX.stroke();
-      // 번호
       oX.fillStyle='#fff';
       oX.font=`bold ${Math.max(10,lw*3)}px sans-serif`;
       oX.textAlign='center';oX.textBaseline='middle';
@@ -1253,6 +1252,7 @@ function renderGallery(){
           <img class="gal-thumb" id="thumb-${p.id}"
             src="${p.origDataUrl||p.editDataUrl||''}"
             alt="${p.fileName}"
+            onclick="event.stopPropagation();if(!selectMode)openViewer(${i})"
             onerror="this.classList.add('no-img')"
             onload="this.classList.remove('no-img')">
           <div class="gal-info">
