@@ -8,8 +8,6 @@
 <title>LH 현장조사</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -165,6 +163,7 @@ body{display:flex;flex-direction:column}
 .gal-cloud.local{color:#d97706}
 .gal-acts{display:flex;gap:4px;padding:0 6px 6px}
 .g-btn{flex:1;padding:5px 2px;font-size:10px;font-weight:700;border-radius:5px;cursor:pointer;text-align:center;border:1px solid var(--bdr);font-family:inherit;background:#fff}
+.g-btn-view{background:var(--green);color:#fff;border-color:var(--green)}
 .g-btn-dl{background:var(--blue);color:#fff;border-color:var(--blue)}
 .g-btn-del{color:var(--red)}
 .g-btn:active{transform:scale(.95)}
@@ -448,20 +447,13 @@ body{display:flex;flex-direction:column}
 <div class="img-viewer hidden" id="imgViewer">
   <div class="viewer-hdr">
     <div>
-      <div class="viewer-title" id="viewerTitle">파일명</div>
+      <div class="viewer-title" id="viewerTitle"></div>
       <div class="viewer-counter" id="viewerCounter"></div>
     </div>
     <button class="viewer-close" onclick="closeViewer()">✕</button>
   </div>
-  <div class="viewer-tabs">
-    <button class="viewer-tab on" id="viewTabBoth" onclick="setViewTab('both')">원본 + 수정본</button>
-    <button class="viewer-tab" id="viewTabOrig" onclick="setViewTab('orig')">원본만</button>
-    <button class="viewer-tab" id="viewTabEdit" onclick="setViewTab('edit')">수정본만</button>
-  </div>
-  <div class="viewer-body" id="viewerBody" onclick="closeViewer()">
-    <div class="viewer-slides" id="viewerSlides">
-      <!-- JS로 생성 -->
-    </div>
+  <div class="viewer-body" id="viewerBody">
+    <div id="viewerSlides" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:auto"></div>
   </div>
   <div class="viewer-footer">
     <div class="viewer-meta" id="viewerMeta"></div>
@@ -623,15 +615,7 @@ async function initApp(){
   const saved=localStorage.getItem('lh_session');
   if(saved && ACCOUNTS[saved]){ currentUser=saved; showApp(); }
 
-  // Firebase 초기화
-  try{
-    if(!firebase.apps.length) firebase.initializeApp(FB_CONFIG);
-    db=firebase.firestore();
-    console.log('Firebase 초기화 성공');
-    if(currentUser) loadFromFirestore();
-  }catch(e){
-    console.warn('Firebase 사용 불가 (로컬 모드):', e);
-  }
+
 }
 
 // DOM 준비되면 실행
@@ -642,44 +626,17 @@ if(document.readyState==='loading'){
 }
 
 // ══ FIRESTORE 저장/불러오기 ══
-function fsCollection(){
-  return db.collection('lh_photos').doc(currentUser).collection('photos');
+// ══ 저장/불러오기 (로컬스토리지) ══
+function saveToFirestore(entry){ saveLocal(); return Promise.resolve(); }
+function loadFromFirestore(){ loadLocal(); updateBadge(); renderGallery(); setSt('✅ 갤러리 불러옴'); return Promise.resolve(); }
+function getImageData(entryId, type){
+  const p=photos.find(x=>x.id===entryId);
+  if(!p) return Promise.resolve(null);
+  return Promise.resolve(type==='edit'?p.editDataUrl:p.origDataUrl);
 }
+function deleteFromFirestore(id){ return Promise.resolve(); }
 
-async function saveToFirestore(entry){
-  try{
-    // 사진 데이터를 청크로 나눠서 저장 (Firestore 1MB 제한 대응)
-    // 메타데이터 문서
-    const meta={
-      id:entry.id, baseName:entry.baseName, fileName:entry.fileName,
-      date:entry.date, addr:entry.addr, jibun:entry.jibun,
-      jiok:entry.jiok, usage:entry.usage, comment:entry.comment||'',
-      savedAt:entry.savedAt,
-      origSaved:entry.origSaved||false,
-      editSaved:entry.editSaved||false,
-      hasOrigData: !!entry.origDataUrl,
-      hasEditData: !!entry.editDataUrl,
-    };
-    await fsCollection().doc(entry.id).set(meta);
-
-    // 원본 이미지 데이터 저장 (압축 후)
-    if(entry.origDataUrl){
-      const compressed = await compressForStorage(entry.origDataUrl);
-      await fsCollection().doc(entry.id).collection('data').doc('orig').set({
-        dataUrl: compressed
-      });
-    }
-    // 수정본 이미지 데이터 저장
-    if(entry.editDataUrl){
-      const compressed = await compressForStorage(entry.editDataUrl);
-      await fsCollection().doc(entry.id).collection('data').doc('edit').set({
-        dataUrl: compressed
-      });
-    }
-  }catch(e){ console.error('Firestore 저장 오류:',e); toast('Firestore 오류: '+e.message,'err'); }
-}
-
-// 저장용 압축 (품질 낮춰서 용량 줄이기)
+// 저장용 압축
 function compressForStorage(dataUrl){
   return new Promise(resolve=>{
     const img=new Image();
@@ -694,40 +651,6 @@ function compressForStorage(dataUrl){
     };
     img.src=dataUrl;
   });
-}
-
-async function loadFromFirestore(){
-  setSt('☁️ 갤러리 불러오는 중...');
-  try{
-    const snap=await fsCollection().orderBy('savedAt','desc').get();
-    photos=[];
-    // 메타데이터만 먼저 불러오기 (빠름)
-    snap.forEach(doc=>photos.push({...doc.data()}));
-    updateBadge();
-    if(document.getElementById('tab-gallery').classList.contains('on')) renderGallery();
-    setSt(photos.length>0?'✅ '+photos.length+'장 불러옴':'사진을 선택하면 원본이 자동 저장됩니다.');
-    toast('☁️ 갤러리 동기화 완료 ('+photos.length+'장)','ok');
-  }catch(e){
-    setSt('⚠️ 갤러리 불러오기 실패 - 로컬 사용');
-    loadLocal();
-  }
-}
-
-// ZIP용 이미지 데이터 가져오기
-async function getImageData(entryId, type){
-  try{
-    const doc=await fsCollection().doc(entryId).collection('data').doc(type).get();
-    if(doc.exists) return doc.data().dataUrl;
-  }catch(e){}
-  return null;
-}
-
-async function deleteFromFirestore(id){
-  try{
-    await fsCollection().doc(id).collection('data').doc('orig').delete();
-    await fsCollection().doc(id).collection('data').doc('edit').delete();
-    await fsCollection().doc(id).delete();
-  }catch(e){}
 }
 
 // ══ CHIPS - 다중 선택 ══
@@ -1260,8 +1183,8 @@ function renderGallery(){
     html+=`<div class="date-group-hd">📅 ${date} · ${groups[date].length}장</div>`;
     html+=`<div class="gal-grid${selectMode?' select-mode':''}">`;
     groups[date].forEach(({p,origIdx:i})=>{
-      const src=p.origDataUrl||p.editDataUrl||'';
-      html+=`<div class="gal-item${selectedIdx.has(i)?' selected':''}" data-idx="${i}">
+      const src=p.editDataUrl||p.origDataUrl||'';
+      html+=`<div class="gal-item${selectedIdx.has(i)?' selected':''}" style="cursor:default">
         <div class="sel-check">✓</div>
         <img class="gal-thumb" id="thumb-${p.id}" src="${src}" alt="${p.fileName}" onerror="this.style.opacity='.2'">
         <div class="gal-info">
@@ -1269,9 +1192,9 @@ function renderGallery(){
           <div class="gal-meta">${p.addr||'-'} ${p.jibun||''}<br>${p.jiok||'-'} · ${p.usage||'-'}<br>${p.date||''}</div>
           <div class="gal-cloud ok">${p.origSaved?'☁️ 원본':''} ${p.editSaved?'✏️ 수정본':''}</div>
         </div>
-        <div class="gal-acts">
-          <button class="g-btn g-btn-dl" data-dl="${i}">↓ 저장</button>
-          <button class="g-btn g-btn-del" data-del="${i}">삭제</button>
+        <div class="gal-acts" onclick="event.stopPropagation()">
+          <button class="g-btn g-btn-dl" onclick="dlOne(${i})">↓ 저장</button>
+          <button class="g-btn g-btn-del" onclick="delOne(${i})">삭제</button>
         </div>
       </div>`;
     });
@@ -1281,21 +1204,7 @@ function renderGallery(){
   el.innerHTML='';
   el.appendChild(wrap);
 
-  // 각 카드에 직접 이벤트 바인딩
-  wrap.querySelectorAll('[data-idx]').forEach(card=>{
-    const idx=parseInt(card.dataset.idx);
-    // 카드 클릭 → 뷰어
-    card.addEventListener('click',()=>{
-      if(selectMode) toggleSelect(idx);
-      else openViewer(idx);
-    });
-    // 저장 버튼
-    const dlBtn=card.querySelector('[data-dl]');
-    if(dlBtn) dlBtn.addEventListener('click',e=>{e.stopPropagation();dlOne(idx);});
-    // 삭제 버튼
-    const delBtn=card.querySelector('[data-del]');
-    if(delBtn) delBtn.addEventListener('click',e=>{e.stopPropagation();delOne(idx);});
-  });
+
 
   // 썸네일 Firestore에서 불러오기
   list.forEach(async p=>{
@@ -1322,6 +1231,9 @@ async function openViewer(i){
 
 async function showViewerPhoto(i){
   const p=photos[i];
+  if(!p) return;
+  viewerIdx=i;
+
   document.getElementById('viewerTitle').textContent=p.fileName||'';
   document.getElementById('viewerCounter').textContent=(i+1)+' / '+photos.length;
   document.getElementById('viewerMeta').textContent=
@@ -1329,138 +1241,39 @@ async function showViewerPhoto(i){
   document.getElementById('btnPrev').disabled=i===0;
   document.getElementById('btnNext').disabled=i===photos.length-1;
 
-  const src=p.editDataUrl||p.origDataUrl||null;
   const slides=document.getElementById('viewerSlides');
+  const orig=p.origDataUrl||null;
+  const edit=p.editDataUrl||null;
 
-  if(src){
-    slides.innerHTML=`
-      <div class="viewer-slide" style="min-width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:8px">
-        ${p.editDataUrl&&p.origDataUrl?`
-          <div style="display:flex;gap:4px;width:100%;justify-content:center">
-            <div style="flex:1;text-align:center">
-              <div style="color:rgba(255,255,255,.6);font-size:10px;margin-bottom:4px">원본</div>
-              <img src="${p.origDataUrl}" style="max-width:100%;max-height:35vh;object-fit:contain;border-radius:6px">
-            </div>
-            <div style="flex:1;text-align:center">
-              <div style="color:rgba(255,255,255,.6);font-size:10px;margin-bottom:4px">수정본</div>
-              <img src="${p.editDataUrl}" style="max-width:100%;max-height:35vh;object-fit:contain;border-radius:6px">
-            </div>
-          </div>` :
-          `<img src="${src}" style="max-width:100%;max-height:70vh;object-fit:contain;border-radius:8px">`
-        }
-      </div>`;
+  if(orig||edit){
+    if(orig&&edit){
+      // 원본 + 수정본 나란히
+      slides.innerHTML=`
+        <div style="display:flex;flex-direction:column;gap:12px;padding:12px;width:100%">
+          <div style="text-align:center">
+            <div style="color:rgba(255,255,255,.6);font-size:10px;font-weight:700;margin-bottom:6px">📷 원본</div>
+            <img src="${orig}" style="max-width:100%;max-height:38vh;object-fit:contain;border-radius:8px;display:block;margin:0 auto">
+          </div>
+          <div style="text-align:center">
+            <div style="color:rgba(255,255,255,.6);font-size:10px;font-weight:700;margin-bottom:6px">✏️ 수정본</div>
+            <img src="${edit}" style="max-width:100%;max-height:38vh;object-fit:contain;border-radius:8px;display:block;margin:0 auto">
+          </div>
+        </div>`;
+    } else {
+      // 하나만
+      slides.innerHTML=`
+        <img src="${orig||edit}" style="max-width:100%;max-height:75vh;object-fit:contain;border-radius:8px">`;
+    }
   } else {
-    slides.innerHTML=`<div class="viewer-slide" style="min-width:100%;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.5);font-size:12px">⏳ 이미지 불러오는 중...</div>`;
-    // Firestore에서 시도
+    slides.innerHTML=`<div style="color:rgba(255,255,255,.5);font-size:12px;text-align:center">⏳ 불러오는 중...</div>`;
     try{
       const d=await getImageData(p.id,'orig');
       if(d){ p.origDataUrl=d; showViewerPhoto(i); }
-      else slides.innerHTML=`<div class="viewer-slide" style="min-width:100%;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.4);font-size:12px">이미지를 불러올 수 없습니다</div>`;
+      else slides.innerHTML=`<div style="color:rgba(255,255,255,.4);font-size:12px">이미지 없음</div>`;
     }catch(e){
-      slides.innerHTML=`<div class="viewer-slide" style="min-width:100%;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.4);font-size:12px">로드 실패</div>`;
+      slides.innerHTML=`<div style="color:rgba(255,255,255,.4);font-size:12px">로드 실패</div>`;
     }
   }
-}
-
-async function renderViewer(){
-  const p=photos[viewerIdx];
-  document.getElementById('viewerTitle').textContent=p.fileName;
-  document.getElementById('viewerCounter').textContent=(viewerIdx+1)+' / '+photos.length;
-  document.getElementById('viewerMeta').textContent=
-    (p.addr||'')+' '+(p.jibun||'')+'\n'+(p.jiok||'')+' · '+(p.usage||'')+'\n'+(p.date||'');
-  document.getElementById('btnPrev').disabled=viewerIdx===0;
-  document.getElementById('btnNext').disabled=viewerIdx===photos.length-1;
-
-  // 이미지 데이터 로드
-  let origSrc=p.origDataUrl;
-  if(!origSrc && p.hasOrigData) origSrc=await getImageData(p.id,'orig');
-  if(origSrc) p.origDataUrl=origSrc;
-
-  let editSrc=p.editDataUrl;
-  if(!editSrc && p.hasEditData) editSrc=await getImageData(p.id,'edit');
-  if(editSrc) p.editDataUrl=editSrc;
-
-  const hasOrig=!!origSrc, hasEdit=!!editSrc;
-
-  // 탭 표시
-  document.getElementById('viewTabBoth').style.display=(hasOrig&&hasEdit)?'block':'none';
-  document.getElementById('viewTabOrig').style.display=hasOrig?'block':'none';
-  document.getElementById('viewTabEdit').style.display=hasEdit?'block':'none';
-
-  // 탭 자동 선택
-  if(viewTab==='both' && (!hasOrig||!hasEdit)) viewTab=hasEdit?'edit':'orig';
-  if(viewTab==='orig' && !hasOrig) viewTab=hasEdit?'edit':'both';
-  if(viewTab==='edit' && !hasEdit) viewTab=hasOrig?'orig':'both';
-  setViewTab(viewTab, false);
-
-  // 슬라이드 컨텐츠 렌더
-  const slides=document.getElementById('viewerSlides');
-  slides.innerHTML='';
-  // 이전 슬라이드 (더미)
-  slides.appendChild(makeSlide(null,null));
-  // 현재 슬라이드
-  slides.appendChild(makeSlide(origSrc,editSrc));
-  // 다음 슬라이드 (더미)
-  slides.appendChild(makeSlide(null,null));
-}
-
-function makeSlide(origSrc,editSrc){
-  const div=document.createElement('div');
-  div.className='viewer-slide';
-  div.onclick=e=>{if(e.target===div)closeViewer();};
-  if(!origSrc&&!editSrc){
-    div.innerHTML='<div style="color:rgba(255,255,255,.5);font-size:12px;text-align:center">이미지를 불러올 수 없습니다</div>';
-    return div;
-  }
-
-  const wrap=document.createElement('div');
-  wrap.className='viewer-img-wrap';
-  wrap.onclick=e=>e.stopPropagation();
-
-  if(viewTab==='both'&&origSrc&&editSrc){
-    wrap.appendChild(makeImgBox(origSrc,'원본'));
-    wrap.appendChild(makeImgBox(editSrc,'수정본'));
-  } else if(viewTab==='orig'&&origSrc){
-    const box=makeImgBox(origSrc,'원본');
-    box.querySelector('img').classList.add('solo');
-    wrap.appendChild(box);
-  } else if(viewTab==='edit'&&editSrc){
-    const box=makeImgBox(editSrc,'수정본');
-    box.querySelector('img').classList.add('solo');
-    wrap.appendChild(box);
-  } else if(origSrc){
-    const box=makeImgBox(origSrc,'원본');
-    box.querySelector('img').classList.add('solo');
-    wrap.appendChild(box);
-  } else if(editSrc){
-    const box=makeImgBox(editSrc,'수정본');
-    box.querySelector('img').classList.add('solo');
-    wrap.appendChild(box);
-  }
-  div.appendChild(wrap);
-  return div;
-}
-
-function makeImgBox(src,label){
-  const box=document.createElement('div');
-  box.className='viewer-img-box';
-  box.innerHTML=`<div class="viewer-img-label">${label}</div><img class="viewer-img" src="${src}" alt="${label}">`;
-  return box;
-}
-
-function setViewTab(tab, rerender=true){
-  viewTab=tab;
-  ['both','orig','edit'].forEach(t=>{
-    document.getElementById('viewTab'+t.charAt(0).toUpperCase()+t.slice(1))?.classList.toggle('on',t===tab);
-  });
-  if(rerender) renderViewer();
-}
-
-function updateSlidePos(animate=true){
-  const slides=document.getElementById('viewerSlides');
-  if(!slides)return;
-  slides.style.transition=animate?'transform .25s ease':'none';
-  slides.style.transform='translateX(-100%)'; // 항상 중간 슬라이드
 }
 
 function closeViewer(){
