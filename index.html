@@ -8,6 +8,8 @@
 <title>LH 현장조사</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -583,7 +585,13 @@ async function initApp(){
   // canvas 초기화 (먼저 실행 - Firebase 실패와 무관)
   mC=document.getElementById('mainCanvas');
   oC=document.getElementById('overlayCanvas');
-  if(mC&&oC){ mX=mC.getContext('2d'); oX=oC.getContext('2d'); }
+  if(mC&&oC){
+    mX=mC.getContext('2d');
+    oX=oC.getContext('2d');
+    oC.addEventListener('click',e=>{if(!bgImg||polyClosed)return;points.push(gPos(e));setPt();drawOv();setSt('점 '+points.length+'개 — [완료]로 도형 완성!');});
+    oC.addEventListener('touchend',e=>{e.preventDefault();if(!bgImg||polyClosed)return;const t=e.changedTouches[0];points.push(gPos({touches:[t]}));setPt();drawOv();setSt('점 '+points.length+'개 — [완료]로 도형 완성!');},{passive:false});
+    oC.addEventListener('mousemove',e=>{if(!bgImg||polyClosed||!points.length)return;drawOv(gPos(e));});
+  }
 
   // 뷰어 스와이프
   const vBody=document.getElementById('viewerBody');
@@ -614,17 +622,14 @@ async function initApp(){
   const saved=localStorage.getItem('lh_session');
   if(saved && ACCOUNTS[saved]){ currentUser=saved; showApp(); }
 
-  // Firebase SDK 로드 (비동기, 실패해도 앱 작동)
+  // Firebase 초기화
   try{
-    await loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
-    await loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js');
     if(!firebase.apps.length) firebase.initializeApp(FB_CONFIG);
     db=firebase.firestore();
     console.log('Firebase 초기화 성공');
-    // Firebase 로드 후 갤러리 새로고침
     if(currentUser) loadFromFirestore();
   }catch(e){
-    console.warn('Firebase 사용 불가 (로컬 모드)');
+    console.warn('Firebase 사용 불가 (로컬 모드):', e);
   }
 }
 
