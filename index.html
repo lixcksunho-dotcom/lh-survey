@@ -300,7 +300,6 @@ body{display:flex;flex-direction:column}
 <div class="tabs" id="appTabs">
   <div class="tab on" onclick="switchTab('survey')">📋 현장조사</div>
   <div class="tab" onclick="switchTab('gallery')">🖼 갤러리 (<span id="galCnt">0</span>)</div>
-  <div class="tab" onclick="switchTab('map')">🗺 지적도</div>
   <div class="tab" onclick="switchTab('excel')">📊 파일인식</div>
 </div>
 
@@ -393,35 +392,6 @@ body{display:flex;flex-direction:column}
     </div>
     <div id="galContent">
       <div class="empty"><div class="ic">🖼</div><p>저장된 사진이 없습니다</p></div>
-    </div>
-  </div>
-
-  <!-- ══ 지적도 탭 ══ -->
-  <div id="tab-map" class="panel" style="padding:0">
-    <!-- 지도 툴바 -->
-    <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fff;border-bottom:1px solid var(--bdr);flex-wrap:wrap">
-      <input id="mapSearchInput" type="text" placeholder="주소 또는 지번 검색..." onkeydown="if(event.key==='Enter')searchMapAddr()" style="flex:1;padding:7px 10px;font-size:12px;border:1px solid var(--bdr);border-radius:6px;font-family:inherit;outline:none;min-width:140px">
-      <button onclick="searchMapAddr()" style="padding:7px 12px;font-size:12px;font-weight:700;background:var(--blue);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:inherit;white-space:nowrap">🔍 검색</button>
-      <div style="display:flex;gap:4px;margin-left:auto">
-        <span style="display:flex;align-items:center;gap:3px;font-size:10px;color:var(--muted)"><span style="width:10px;height:10px;background:rgba(255,100,100,0.6);border-radius:2px;display:inline-block"></span>완료</span>
-        <span style="display:flex;align-items:center;gap:3px;font-size:10px;color:var(--muted)"><span style="width:10px;height:10px;background:rgba(30,100,255,0.5);border-radius:2px;display:inline-block"></span>진행중</span>
-      </div>
-    </div>
-    <!-- 지도 영역 -->
-    <div id="mapContainer" style="width:100%;height:calc(100vh - 160px);position:relative;background:#e8e8e8">
-      <div id="mapLoading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f0f2f7;z-index:10">
-        <div style="font-size:32px;margin-bottom:12px">🗺</div>
-        <p style="font-size:13px;font-weight:700;color:var(--blue)">지적도 탭 클릭 시 지도가 로드됩니다</p>
-        <p style="font-size:11px;color:var(--muted);margin-top:6px">Vworld 국토지리정보원 지적도</p>
-      </div>
-    </div>
-    <!-- 필지 정보 팝업 -->
-    <div id="parcelPopup" style="display:none;position:absolute;bottom:80px;left:50%;transform:translateX(-50%);background:#fff;border:2px solid var(--blue);border-radius:12px;padding:12px 16px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:200;min-width:220px;text-align:center">
-      <div id="popupContent"></div>
-      <div style="display:flex;gap:6px;margin-top:10px">
-        <button id="popupSurveyBtn" onclick="goSurveyFromMap()" style="flex:1;padding:8px;font-size:12px;font-weight:700;background:var(--blue);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:inherit">📋 현장조사 이동</button>
-        <button onclick="document.getElementById('parcelPopup').style.display='none'" style="padding:8px 10px;font-size:12px;background:#f3f4f6;border:1px solid var(--bdr);border-radius:6px;cursor:pointer;font-family:inherit">✕</button>
-      </div>
     </div>
   </div>
 
@@ -551,7 +521,6 @@ let parcelStatusMap={};
 let swipeStartX=0, swipeStartY=0;
 
 // Vworld API Key
-const VWORLD_KEY='5394B578-D030-38F7-A7D1-3D0CC67144C5';
 
 // canvas는 DOMContentLoaded 후 초기화
 let mC,oC,mX,oX;
@@ -1193,14 +1162,13 @@ function getDisplayPhotos(){
 
 // ══ GALLERY ══
 function switchTab(t){
-  const tabs=['survey','gallery','map','excel'];
+  const tabs=['survey','gallery','excel'];
   document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('on',tabs[i]===t));
   tabs.forEach(name=>{
     const el=document.getElementById('tab-'+name);
     if(el) el.classList.toggle('on',name===t);
   });
   if(t==='gallery'){selectMode=false;selectedIdx.clear();renderGallery();}
-  if(t==='map'){initMap();}
 }
 function updateBadge(){
   const n=photos.length;
@@ -1495,207 +1463,6 @@ function saveParcelStatusMap(){
   localStorage.setItem('lh_parcel_status_'+(currentUser||'default'), JSON.stringify(parcelStatusMap));
 }
 
-function initMap(){
-  if(mapInited) return;
-  mapInited=true;
-  loadParcelStatus();
-
-  // Vworld SDK 로드
-  const script=document.createElement('script');
-  script.src=`https://map.vworld.kr/js/vworldMapInit.js.do?version=2.0&apiKey=${VWORLD_KEY}`;
-  script.onload=()=>{
-    setTimeout(()=>{
-      try{
-        map=new vw.Map('mapContainer',{
-          basemapType: vw.ol.layer.Base.MapType.GRAPHIC,
-          center: new vw.ol.proj.transform([129.312, 35.538],'EPSG:4326','EPSG:3857'),
-          zoom: 15,
-          zoomSlider: true,
-        });
-
-        // 지적도 WMS 레이어 추가
-        const cadastralLayer=new vw.ol.layer.Tile({
-          source: new vw.ol.source.TileWMS({
-            url:'https://api.vworld.kr/req/wms',
-            params:{
-              'SERVICE':'WMS',
-              'VERSION':'1.3.0',
-              'REQUEST':'GetMap',
-              'LAYERS':'lt_c_lhblkmp', // 법정구역 지적도
-              'FORMAT':'image/png',
-              'TRANSPARENT':'true',
-              'CRS':'EPSG:3857',
-              'KEY': VWORLD_KEY,
-            },
-            crossOrigin:'anonymous',
-          }),
-          opacity:0.6,
-        });
-        map.addLayer(cadastralLayer);
-
-        // 클릭 이벤트 - WMS GetFeatureInfo
-        map.on('click', async(evt)=>{
-          const view=map.getView();
-          const viewResolution=view.getResolution();
-          const url=cadastralLayer.getSource().getFeatureInfoUrl(
-            evt.coordinate,'EPSG:3857',{
-              'INFO_FORMAT':'application/json',
-              'FEATURE_COUNT':1,
-              'QUERY_LAYERS':'lt_c_lhblkmp',
-            }
-          );
-          if(!url) return;
-          try{
-            // Vworld API로 필지 정보 조회
-            const coord=vw.ol.proj.transform(evt.coordinate,'EPSG:3857','EPSG:4326');
-            const lon=coord[0].toFixed(7), lat=coord[1].toFixed(7);
-            await getParcelInfo(lon,lat,evt.pixel);
-          }catch(e){console.warn('필지 조회 오류:',e);}
-        });
-
-        // 호버 효과
-        map.on('pointermove',(evt)=>{
-          map.getTargetElement().style.cursor='pointer';
-        });
-
-        document.getElementById('mapLoading').style.display='none';
-        toast('🗺 지적도 로드 완료!','ok');
-      }catch(e){
-        document.getElementById('mapLoading').innerHTML=
-          '<p style="color:red;font-size:12px">지도 로드 실패: '+e.message+'</p>';
-      }
-    },500);
-  };
-  script.onerror=()=>{
-    document.getElementById('mapLoading').innerHTML=
-      '<p style="color:red;padding:20px;font-size:12px">⚠️ Vworld SDK 로드 실패<br>API Key 또는 네트워크를 확인해주세요</p>';
-  };
-  document.head.appendChild(script);
-}
-
-// 좌표로 필지 정보 조회
-async function getParcelInfo(lon,lat,pixel){
-  try{
-    const url=`https://api.vworld.kr/req/data?service=data&request=GetFeature&data=LT_C_LHBLKMP&key=${VWORLD_KEY}&geomFilter=POINT(${lon}%20${lat})&format=json&size=1&crs=EPSG:4326`;
-    const res=await fetch(url);
-    const data=await res.json();
-    const features=data?.response?.result?.featureCollection?.features;
-    if(features&&features.length>0){
-      const props=features[0].properties;
-      const jibun=(props.JIBUN||props.jibun||'').trim();
-      const jiok=(props.JIMOK||props.jimok||props.JMOK||'').trim();
-      const addr=(props.ADDR||props.addr||props.BADDR||'').trim();
-      showParcelPopup(jibun,jiok,addr);
-    }else{
-      // Geocoder로 fallback
-      await getParcelByGeocoder(lon,lat);
-    }
-  }catch(e){
-    await getParcelByGeocoder(lon,lat);
-  }
-}
-
-async function getParcelByGeocoder(lon,lat){
-  try{
-    const url=`https://api.vworld.kr/req/address?service=address&request=getAddress&version=2.0&crs=epsg:4326&point=${lon},${lat}&format=json&type=both&zipcode=true&simple=false&key=${VWORLD_KEY}`;
-    const res=await fetch(url);
-    const data=await res.json();
-    const result=data?.response?.result;
-    if(result&&result.length>0){
-      const parcel=result.find(r=>r.type==='parcel')||result[0];
-      const text=parcel?.text||'';
-      // "울산광역시 중구 성안동 363" 형태에서 파싱
-      const parts=text.split(' ');
-      const jibun=parts[parts.length-1]||'';
-      const addr=parts.slice(0,-1).join(' ');
-      showParcelPopup(jibun,'',addr);
-    }else{
-      toast('필지 정보를 찾을 수 없어요','err');
-    }
-  }catch(e){toast('조회 실패: '+e.message,'err');}
-}
-
-function showParcelPopup(jibun,jiok,addr){
-  selectedParcelInfo={jibun,jiok,addr};
-  const status=parcelStatusMap[jibun]||'none';
-  const statusBadge=status==='done'?'<span style="color:#dc2626;font-weight:700">✅ 조사완료</span>':
-    status==='progress'?'<span style="color:#1d4ed8;font-weight:700">🔵 진행중</span>':'';
-
-  document.getElementById('popupContent').innerHTML=`
-    <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px">${jibun} ${jiok}</div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">${addr}</div>
-    ${statusBadge}
-    <div style="display:flex;gap:6px;margin-top:8px;justify-content:center">
-      <button onclick="setParcelStatusFromMap('${jibun}','progress')" style="padding:4px 8px;font-size:10px;font-weight:700;background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd;border-radius:4px;cursor:pointer;font-family:inherit">🔵 진행중</button>
-      <button onclick="setParcelStatusFromMap('${jibun}','done')" style="padding:4px 8px;font-size:10px;font-weight:700;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;cursor:pointer;font-family:inherit">✅ 완료</button>
-    </div>
-  `;
-  const popup=document.getElementById('parcelPopup');
-  popup.style.display='block';
-}
-
-function setParcelStatusFromMap(jibun,status){
-  parcelStatusMap[jibun]=status;
-  saveParcelStatusMap();
-  if(selectedParcelInfo&&selectedParcelInfo.jibun===jibun){
-    showParcelPopup(selectedParcelInfo.jibun,selectedParcelInfo.jiok,selectedParcelInfo.addr);
-  }
-  toast(status==='done'?'✅ 완료 처리됨':'🔵 진행중 처리됨','ok');
-}
-
-function goSurveyFromMap(){
-  if(!selectedParcelInfo) return;
-  document.getElementById('f-jibun').value=selectedParcelInfo.jibun;
-  document.getElementById('f-jiok').value=selectedParcelInfo.jiok;
-  document.getElementById('f-addr').value='';
-  updateOv(); clearChips('jiok-chips'); clearChips('usage-chips');
-  document.getElementById('parcelPopup').style.display='none';
-  switchTab('survey');
-  toast('📋 '+selectedParcelInfo.jibun+' 현장조사 탭으로 이동','ok');
-}
-
-async function searchMapAddr(){
-  const q=document.getElementById('mapSearchInput').value.trim();
-  if(!q){toast('검색어를 입력해주세요','err');return;}
-  if(!map){toast('지도를 먼저 로드해주세요','err');return;}
-  try{
-    // Vworld 검색 API
-    const url=`https://api.vworld.kr/req/search?service=search&request=search&version=2.0&crs=EPSG:4326&size=5&page=1&query=${encodeURIComponent(q)}&type=address&format=json&errorformat=json&key=${VWORLD_KEY}`;
-    const res=await fetch(url);
-    const data=await res.json();
-    const status=data?.response?.status;
-
-    if(status==='OK'){
-      const items=data?.response?.result?.items;
-      if(items&&items.length>0){
-        const point=items[0].point;
-        const lon=parseFloat(point.x), lat=parseFloat(point.y);
-        const coord=vw.ol.proj.transform([lon,lat],'EPSG:4326','EPSG:3857');
-        map.getView().animate({center:coord,zoom:17,duration:800});
-        toast('📍 '+items[0].title,'ok');
-        return;
-      }
-    }
-
-    // 검색 실패시 지번 검색 시도
-    const url2=`https://api.vworld.kr/req/search?service=search&request=search&version=2.0&crs=EPSG:4326&size=5&page=1&query=${encodeURIComponent(q)}&type=place&format=json&errorformat=json&key=${VWORLD_KEY}`;
-    const res2=await fetch(url2);
-    const data2=await res2.json();
-    const items2=data2?.response?.result?.items;
-    if(items2&&items2.length>0){
-      const point=items2[0].point;
-      const lon=parseFloat(point.x), lat=parseFloat(point.y);
-      const coord=vw.ol.proj.transform([lon,lat],'EPSG:4326','EPSG:3857');
-      map.getView().animate({center:coord,zoom:17,duration:800});
-      toast('📍 '+items2[0].title,'ok');
-    } else {
-      toast('검색 결과가 없습니다. 더 자세한 주소를 입력해보세요.','err');
-    }
-  }catch(e){
-    console.error('검색 오류:',e);
-    toast('검색 실패: 네트워크 오류','err');
-  }
-}
 // ══ 엑셀 파일 인식 ══
 let excelData=[], excelHeaders=[], aiMapping={};
 
