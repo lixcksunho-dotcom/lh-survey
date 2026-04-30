@@ -1475,7 +1475,7 @@ function renderGallery(){
     html+=`<div class="gal-grid${selectMode?' select-mode':''}">`;
     groups[date].forEach(({p,origIdx:i})=>{
       const src=p.editDataUrl||p.origDataUrl||'';
-      html+=`<div class="gal-item${selectedIdx.has(i)?' selected':''}" onclick="selectMode?toggleSelect(${i}):openViewer(${i})" style="cursor:pointer">
+      html+=`<div class="gal-item${selectedIdx.has(i)?' selected':''}" data-idx="${i}" style="cursor:pointer">
         <div class="sel-check">✓</div>
         <img class="gal-thumb" id="thumb-${p.id}" src="${src}" alt="${p.fileName}" onerror="this.style.opacity='.2'">
         <div class="gal-info">
@@ -1483,9 +1483,9 @@ function renderGallery(){
           <div class="gal-meta">${p.addr||'-'} ${p.jibun||''}<br>${p.jiok||'-'} · ${p.usage||'-'}<br>${p.date||''}</div>
           <div class="gal-cloud ok">${p.origSaved?'☁️ 원본':''} ${p.editSaved?'✏️ 수정본':''}</div>
         </div>
-        <div class="gal-acts" onclick="event.stopPropagation()">
-          <button class="g-btn g-btn-dl" onclick="dlOne(${i})">↓ 저장</button>
-          <button class="g-btn g-btn-del" onclick="delOne(${i})">삭제</button>
+        <div class="gal-acts">
+          <button class="g-btn g-btn-dl" data-dl="${i}">↓ 저장</button>
+          <button class="g-btn g-btn-del" data-del="${i}">삭제</button>
         </div>
       </div>`;
     });
@@ -1494,6 +1494,19 @@ function renderGallery(){
   wrap.innerHTML=html;
   el.innerHTML='';
   el.appendChild(wrap);
+
+  // 각 카드에 직접 onclick 핸들러 연결
+  wrap.querySelectorAll('[data-idx]').forEach(function(card){
+    var idx=parseInt(card.dataset.idx);
+    card.onclick=function(e){
+      if(selectMode){ toggleSelect(idx); return; }
+      openViewer(idx);
+    };
+    var dlBtn=card.querySelector('[data-dl]');
+    if(dlBtn) dlBtn.onclick=function(e){ e.stopPropagation(); dlOne(idx); };
+    var delBtn=card.querySelector('[data-del]');
+    if(delBtn) delBtn.onclick=function(e){ e.stopPropagation(); delOne(idx); };
+  });
 
 
 
@@ -1516,8 +1529,35 @@ let viewerIdx=0, viewTab='both';
 async function openViewer(i){
   if(i<0||i>=photos.length) return;
   viewerIdx=i;
-  document.getElementById('imgViewer').classList.remove('hidden');
-  showViewerPhoto(i);
+  const p=photos[i];
+  
+  // 로컬에 이미지 있으면 새 탭으로 열기
+  const src=p.editDataUrl||p.origDataUrl||null;
+  if(src){
+    const win=window.open('','_blank');
+    win.document.write('<html><body style="margin:0;background:#000;display:flex;flex-direction:column;align-items:center;min-height:100vh">');
+    if(p.editDataUrl&&p.origDataUrl){
+      win.document.write('<p style="color:#fff;font-size:12px;padding:10px">✏️ 수정본</p>');
+      win.document.write('<img src="'+p.editDataUrl+'" style="max-width:100%;margin-bottom:20px">');
+      win.document.write('<p style="color:#fff;font-size:12px;padding:10px">📷 원본</p>');
+      win.document.write('<img src="'+p.origDataUrl+'" style="max-width:100%">');
+    } else {
+      win.document.write('<img src="'+src+'" style="max-width:100%;max-height:100vh;object-fit:contain">');
+    }
+    win.document.write('<p style="color:#aaa;font-size:12px;padding:16px">'+p.fileName+'</p>');
+    win.document.write('</body></html>');
+    win.document.close();
+    return;
+  }
+  
+  // Firestore에서 불러오기
+  const d=await getImageData(p.id,'orig');
+  if(d){
+    p.origDataUrl=d;
+    openViewer(i);
+  } else {
+    toast('사진을 불러올 수 없습니다.','err');
+  }
 }
 
 async function showViewerPhoto(i){
