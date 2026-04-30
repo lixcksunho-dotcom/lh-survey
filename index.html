@@ -317,7 +317,7 @@ body{display:flex;flex-direction:column}
 <div class="tabs" id="appTabs">
   <div class="tab on" onclick="switchTab('survey')">📋 현장조사</div>
   <div class="tab" onclick="switchTab('gallery')">🖼 갤러리 (<span id="galCnt">0</span>)</div>
-  <div class="tab" onclick="switchTab('rename')">✏️ 리네이머</div>
+  <div class="tab" onclick="switchTab('rename')">📤 갤러리 전송</div>
   <div class="tab" onclick="switchTab('excel')">📊 파일인식</div>
 </div>
 
@@ -417,44 +417,39 @@ body{display:flex;flex-direction:column}
     </div>
   </div>
 
-  <!-- ══ 리네이머 탭 ══ -->
+  <!-- ══ 갤러리 전송 탭 ══ -->
   <div id="tab-rename" class="panel">
     <div class="card">
       <div class="card-hd" style="padding:10px 14px;border-bottom:1px solid var(--bdr);background:#f8f9fc">
-        <h3 style="font-size:12px;font-weight:700;color:var(--muted)">✏️ 파일명 리네이머</h3>
+        <h3 style="font-size:12px;font-weight:700;color:var(--muted)">📤 갤러리 전송</h3>
       </div>
       <div style="padding:12px 14px">
-        <p style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:10px">휴대폰 갤러리에서 사진을 추가하고 파일명을 <b>소재지 지번 지장물</b> 형식으로 정리해서 ZIP으로 다운로드해요.</p>
+        <p style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:12px">휴대폰 갤러리에서 사진을 선택해 웹 갤러리에 추가하거나 ZIP으로 다운로드해요.</p>
 
-        <!-- 사진 추가 버튼 -->
-        <label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border:2px dashed var(--blue);border-radius:10px;cursor:pointer;margin-bottom:10px;background:#f0f7ff">
-          <span style="font-size:20px">📷</span>
-          <span style="font-size:13px;font-weight:700;color:var(--blue)">사진 추가</span>
-          <input type="file" accept="image/*" multiple onchange="addRenamePhotos(event)" style="display:none">
+        <!-- 사진 추가 -->
+        <label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px;border:2px dashed var(--blue);border-radius:10px;cursor:pointer;margin-bottom:12px;background:#f0f7ff">
+          <span style="font-size:24px">📷</span>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--blue)">사진 선택</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px">여러 장 동시 선택 가능</div>
+          </div>
+          <input type="file" accept="image/*" multiple onchange="addTransferPhotos(event)" style="display:none">
         </label>
 
-        <!-- 공통 입력 (한번에 채우기) -->
-        <div style="background:#f8f9fc;border-radius:8px;padding:10px;margin-bottom:10px">
-          <p style="font-size:10px;font-weight:700;color:var(--muted);margin-bottom:6px">📋 전체 일괄 입력</p>
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <input id="rnBulkAddr" placeholder="소재지" list="addrList"
-              style="flex:1;min-width:80px;padding:6px 8px;font-size:12px;border:1px solid var(--bdr);border-radius:6px;font-family:inherit;outline:none">
-            <input id="rnBulkJibun" placeholder="지번"
-              style="flex:1;min-width:80px;padding:6px 8px;font-size:12px;border:1px solid var(--bdr);border-radius:6px;font-family:inherit;outline:none">
-            <input id="rnBulkName" placeholder="지장물명"
-              style="flex:1;min-width:80px;padding:6px 8px;font-size:12px;border:1px solid var(--bdr);border-radius:6px;font-family:inherit;outline:none">
-            <button onclick="applyBulkRename()" style="padding:6px 12px;font-size:11px;font-weight:700;background:var(--blue);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:inherit">적용</button>
-          </div>
+        <!-- 카운트 + 액션 버튼 -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <span id="transferCount" style="font-size:12px;font-weight:700;color:var(--muted)">0장 선택됨</span>
+          <button onclick="clearTransferList()" style="padding:5px 10px;font-size:11px;border:1px solid var(--bdr);border-radius:6px;background:#f3f4f6;cursor:pointer;font-family:inherit">전체삭제</button>
         </div>
-
-        <!-- 액션 버튼 -->
-        <div style="display:flex;gap:6px">
-          <button onclick="clearRenameList()" style="flex:1;padding:8px;font-size:11px;font-weight:700;border:1px solid var(--bdr);border-radius:6px;background:#f3f4f6;cursor:pointer;font-family:inherit">🗑 전체삭제</button>
-          <button onclick="downloadRenamed()" style="flex:2;padding:8px;font-size:12px;font-weight:700;border:none;border-radius:6px;background:var(--green);color:#fff;cursor:pointer;font-family:inherit">📦 ZIP 다운로드</button>
+        <div style="display:flex;gap:8px">
+          <button onclick="addToGallery()" style="flex:1;padding:10px;font-size:12px;font-weight:700;border:none;border-radius:8px;background:var(--blue);color:#fff;cursor:pointer;font-family:inherit">🖼 갤러리에 추가</button>
+          <button onclick="downloadTransferZip()" style="flex:1;padding:10px;font-size:12px;font-weight:700;border:none;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-family:inherit">📦 ZIP 다운로드</button>
         </div>
       </div>
     </div>
-    <div id="renameList"></div>
+
+    <!-- 사진 미리보기 목록 -->
+    <div id="transferList"></div>
   </div>
 
   <!-- ══ 파일인식 탭 ══ -->
@@ -983,18 +978,15 @@ function updateOv(){
   document.getElementById('ov-usage').textContent=getTableValue('usage')||'-';
   document.getElementById('ov-date').textContent=g('f-date')||'-';
 }
-// ══ 리네이머 ══
-let renameItems=[];
+// ══ 갤러리 전송 ══
+let transferItems=[];
 
-function renderRenameList(){
-  buildRenameUI();
-}
+function renderRenameList(){ buildTransferUI(); }
 
-async function addRenamePhotos(e){
+async function addTransferPhotos(e){
   const files=Array.from(e.target.files);
   e.target.value='';
   if(!files.length) return;
-
   toast('📷 사진 읽는 중...','ok');
   for(const file of files){
     const dataUrl=await new Promise(res=>{
@@ -1002,136 +994,101 @@ async function addRenamePhotos(e){
       r.onload=ev=>res(ev.target.result);
       r.readAsDataURL(file);
     });
-    const ext=file.name.split('.').pop().toLowerCase()||'jpg';
-    renameItems.push({
-      id:Date.now()+'_'+Math.random(),
+    transferItems.push({
+      id:'tr_'+Date.now()+'_'+Math.random().toString(36).slice(2),
       dataUrl,
-      ext,
-      addr:'',
-      jibun:'',
-      name:'',
+      fileName:file.name,
+      ext:file.name.split('.').pop().toLowerCase()||'jpg',
     });
   }
-  buildRenameUI();
+  buildTransferUI();
   toast('✅ '+files.length+'장 추가됨','ok');
 }
 
-function buildRenameUI(){
-  const el=document.getElementById('renameList');
+function buildTransferUI(){
+  const el=document.getElementById('transferList');
+  const cnt=document.getElementById('transferCount');
+  if(cnt) cnt.textContent=transferItems.length+'장 선택됨';
   if(!el) return;
-  if(!renameItems.length){
-    el.innerHTML='<div class="empty" style="margin:16px"><div class="ic">📷</div><p>위에서 사진을 추가해주세요</p></div>';
+  if(!transferItems.length){
+    el.innerHTML='<div class="empty" style="margin:12px"><div class="ic">📷</div><p>위에서 사진을 선택해주세요</p></div>';
     return;
   }
-
-  // 미리보기 파일명 계산 (중복 처리)
-  const nameCount={};
-  const previews=renameItems.map(r=>{
-    const base=[r.addr,r.jibun,r.name].map(s=>s.trim()).filter(Boolean).join(' ');
-    if(!base) return '파일명없음.'+r.ext;
-    if(!nameCount[base]) nameCount[base]=0;
-    nameCount[base]++;
-    return base+'.'+r.ext;
-  });
-  // 중복된 이름에 _1, _2 붙이기
-  const nameIdx={};
-  const finalNames=renameItems.map((r,i)=>{
-    const base=[r.addr,r.jibun,r.name].map(s=>s.trim()).filter(Boolean).join(' ');
-    if(!base) return '파일명없음_'+i+'.'+r.ext;
-    const total=nameCount[base]||1;
-    if(total===1) return base+'.'+r.ext;
-    if(!nameIdx[base]) nameIdx[base]=1;
-    else nameIdx[base]++;
-    return base+'_'+nameIdx[base]+'.'+r.ext;
-  });
-
-  el.innerHTML=renameItems.map((r,i)=>`
-    <div class="rename-item" id="ri-${i}">
-      <div style="display:flex">
-        <div style="position:relative;flex-shrink:0">
-          <img class="rename-thumb" src="${r.dataUrl}" onerror="this.style.opacity='.2'">
-          <button onclick="delRenameItem(${i})" style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.5);border:none;color:#fff;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">✕</button>
-        </div>
-        <div class="rename-fields">
-          <input class="rename-input" placeholder="소재지" value="${r.addr}" list="addrList"
-            oninput="renameItems[${i}].addr=this.value;buildRenameUI()">
-          <input class="rename-input" placeholder="지번" value="${r.jibun}"
-            oninput="renameItems[${i}].jibun=this.value;buildRenameUI()">
-          <input class="rename-input" placeholder="지장물명" value="${r.name}"
-            oninput="renameItems[${i}].name=this.value;buildRenameUI()">
-          <div class="rename-preview">📄 ${finalNames[i]}</div>
-        </div>
+  el.innerHTML=transferItems.map((r,i)=>`
+    <div style="margin:8px;border-radius:10px;overflow:hidden;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.07);display:flex;align-items:center;gap:10px;padding:8px">
+      <img src="${r.dataUrl}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;flex-shrink:0">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.fileName}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${(r.dataUrl.length/1024/1.37).toFixed(0)}KB</div>
       </div>
+      <button onclick="delTransferItem(${i})" style="width:28px;height:28px;border-radius:50%;border:1px solid #fca5a5;background:#fee2e2;color:var(--red);cursor:pointer;font-size:12px;flex-shrink:0">✕</button>
     </div>`).join('');
 }
 
-function delRenameItem(i){
-  renameItems.splice(i,1);
-  buildRenameUI();
+function delTransferItem(i){
+  transferItems.splice(i,1);
+  buildTransferUI();
 }
 
-function clearRenameList(){
-  if(!renameItems.length) return;
-  if(!confirm('전체 삭제할까요?')) return;
-  renameItems=[];
-  buildRenameUI();
+function clearTransferList(){
+  if(!transferItems.length) return;
+  transferItems=[];
+  buildTransferUI();
+  toast('삭제됨','ok');
 }
 
-function applyBulkRename(){
-  const addr=document.getElementById('rnBulkAddr').value.trim();
-  const jibun=document.getElementById('rnBulkJibun').value.trim();
-  const name=document.getElementById('rnBulkName').value.trim();
-  renameItems.forEach(r=>{
-    if(addr) r.addr=addr;
-    if(jibun) r.jibun=jibun;
-    if(name) r.name=name;
-  });
-  buildRenameUI();
-  toast('✅ 전체 적용됨','ok');
+async function addToGallery(){
+  if(!transferItems.length){ toast('사진을 먼저 선택해주세요','err'); return; }
+  toast('🖼 갤러리에 추가 중...','ok');
+  const today=new Date().toISOString().slice(0,10);
+  for(const r of transferItems){
+    const id='g_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+    const baseName=r.fileName.replace(/\.[^.]+$/,'');
+    const entry={
+      id, baseName,
+      fileName:baseName+'_1',
+      date:today,
+      addr:'', jibun:'', jiok:'', usage:'', comment:'',
+      savedAt:Date.now(),
+      origDataUrl:r.dataUrl,
+      editDataUrl:null,
+      origSaved:false, editSaved:false,
+      hasOrigData:true, hasEditData:false,
+    };
+    photos.unshift(entry);
+    await saveToFirestore(entry);
+  }
+  saveLocal();
+  updateBadge();
+  toast('✅ '+transferItems.length+'장 갤러리에 추가됨','ok');
+  transferItems=[];
+  buildTransferUI();
+  switchTab('gallery');
 }
 
-async function downloadRenamed(){
-  if(!renameItems.length){ toast('사진을 먼저 추가해주세요','err'); return; }
+async function downloadTransferZip(){
+  if(!transferItems.length){ toast('사진을 먼저 선택해주세요','err'); return; }
   if(typeof JSZip==='undefined'){ toast('잠시 후 다시 시도해주세요','err'); return; }
-
   toast('📦 ZIP 생성 중...','ok');
   const zip=new JSZip();
-
-  // 최종 파일명 계산 (중복 처리)
-  const nameCount={};
-  renameItems.forEach(r=>{
-    const base=[r.addr,r.jibun,r.name].map(s=>s.trim()).filter(Boolean).join(' ');
-    if(!base) return;
-    nameCount[base]=(nameCount[base]||0)+1;
-  });
-  const nameIdx={};
-
-  for(const r of renameItems){
-    const base=[r.addr,r.jibun,r.name].map(s=>s.trim()).filter(Boolean).join(' ');
-    let fname;
-    if(!base){
-      fname='파일명없음_'+Date.now()+'.'+r.ext;
-    } else if(nameCount[base]===1){
-      fname=base+'.'+r.ext;
-    } else {
-      nameIdx[base]=(nameIdx[base]||0)+1;
-      fname=base+'_'+nameIdx[base]+'.'+r.ext;
-    }
-
+  for(const r of transferItems){
     const b64=r.dataUrl.split(',')[1];
-    if(b64) zip.file(fname, b64, {base64:true});
+    if(b64) zip.file(r.fileName, b64, {base64:true});
   }
-
   const blob=await zip.generateAsync({type:'blob'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
   a.href=url;
-  const d=new Date().toLocaleDateString('ko-KR').replace(/\.\s*/g,'-').replace(/-$/,'');
-  a.download='현장사진_'+d+'.zip';
+  a.download='전송사진_'+new Date().toISOString().slice(0,10)+'.zip';
   a.click();
   URL.revokeObjectURL(url);
-  toast('✅ ZIP 다운로드 완료 ('+renameItems.length+'장)','ok');
+  toast('✅ ZIP 다운로드 완료','ok');
 }
+
+// 구버전 호환
+function downloadRenamed(){ downloadTransferZip(); }
+function addRenamePhotos(e){ addTransferPhotos(e); }
+
 
 function renderChips(key){
   const opts=getOpts(key);
