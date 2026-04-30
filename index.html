@@ -629,7 +629,7 @@ function loadScript(src){
 }
 
 async function initApp(){
-  // canvas 초기화 (먼저 실행 - Firebase 실패와 무관)
+  // 1. canvas 초기화
   mC=document.getElementById('mainCanvas');
   oC=document.getElementById('overlayCanvas');
   if(mC&&oC){
@@ -640,23 +640,19 @@ async function initApp(){
     oC.addEventListener('mousemove',e=>{if(!bgImg||polyClosed||!points.length)return;drawOv(gPos(e));});
   }
 
-  // 뷰어 스와이프
+  // 2. 뷰어 스와이프
   const vBody=document.getElementById('viewerBody');
   if(vBody){
-    vBody.addEventListener('touchstart',e=>{
-      swipeStartX=e.touches[0].clientX;
-      swipeStartY=e.touches[0].clientY;
-    },{passive:true});
+    vBody.addEventListener('touchstart',e=>{swipeStartX=e.touches[0].clientX;swipeStartY=e.touches[0].clientY;},{passive:true});
     vBody.addEventListener('touchend',e=>{
       const dx=e.changedTouches[0].clientX-swipeStartX;
       const dy=e.changedTouches[0].clientY-swipeStartY;
-      if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>50){
-        if(dx<0) viewerNext(); else viewerPrev();
-      } else if(Math.abs(dx)<10&&Math.abs(dy)<10){ closeViewer(); }
+      if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>50){if(dx<0) viewerNext();else viewerPrev();}
+      else if(Math.abs(dx)<10&&Math.abs(dy)<10){closeViewer();}
     },{passive:true});
   }
 
-  // 키보드
+  // 3. 키보드
   document.addEventListener('keydown',e=>{
     const v=document.getElementById('imgViewer');
     if(!v||v.classList.contains('hidden')) return;
@@ -665,13 +661,13 @@ async function initApp(){
     if(e.key==='Escape') closeViewer();
   });
 
-  // 팀 버튼 이벤트 연결
+  // 4. 팀 버튼 - 가장 먼저 확실하게 연결
   const btn2=document.getElementById('btnTeam2');
   const btn1=document.getElementById('btnTeam1');
-  if(btn2) btn2.addEventListener('click',()=>selectTeam('sunho980'));
-  if(btn1) btn1.addEventListener('click',()=>selectTeam('lh1team'));
+  if(btn2) btn2.onclick=()=>selectTeam('sunho980');
+  if(btn1) btn1.onclick=()=>selectTeam('lh1team');
 
-  // Firebase 초기화
+  // 5. Firebase 초기화 (실패해도 앱 작동)
   try{
     if(typeof firebase!=='undefined'){
       if(!firebase.apps.length) firebase.initializeApp(FB_CONFIG);
@@ -680,10 +676,9 @@ async function initApp(){
     }
   }catch(e){ console.warn('Firebase 연결 실패:', e.message); }
 
-  // 자동 로그인
+  // 6. 자동 로그인
   const saved=localStorage.getItem('lh_session');
   if(saved && ACCOUNTS[saved]){ currentUser=saved; showApp(); }
-
 }
 
 // DOM 준비되면 실행
@@ -694,7 +689,6 @@ if(document.readyState==='loading'){
 }
 
 // ══ 저장/불러오기 (Firestore) ══
-let db=null;
 
 function fsCol(){
   return db.collection('lh_photos').doc(currentUser).collection('photos');
