@@ -210,7 +210,13 @@ body{display:flex;flex-direction:column}
 .extra-row input:focus{border-color:var(--blue)}
 .extra-row .del-row{width:26px;height:26px;border-radius:50%;border:1px solid #fca5a5;background:#fee2e2;color:var(--red);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:inherit}
 
-/* ── 옵션 모달 ── */
+.rename-item{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);margin:8px;overflow:hidden}
+.rename-item.selected{outline:2px solid var(--blue)}
+.rename-thumb{width:80px;height:80px;object-fit:cover;flex-shrink:0;background:#e5e7eb}
+.rename-fields{flex:1;display:flex;flex-direction:column;gap:4px;padding:8px 10px}
+.rename-input{width:100%;padding:5px 8px;font-size:11px;border:1px solid var(--bdr);border-radius:5px;font-family:inherit;outline:none}
+.rename-input:focus{border-color:var(--blue)}
+.rename-preview{font-size:10px;color:var(--blue);font-weight:700;margin-top:2px;word-break:break-all} */
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;display:flex;align-items:flex-end;justify-content:center}
 .modal-bg.hidden{display:none}
 .modal-box{background:var(--sur);border-radius:16px 16px 0 0;padding:16px;width:100%;max-width:480px;padding-bottom:calc(16px + var(--sb))}
@@ -311,6 +317,7 @@ body{display:flex;flex-direction:column}
 <div class="tabs" id="appTabs">
   <div class="tab on" onclick="switchTab('survey')">📋 현장조사</div>
   <div class="tab" onclick="switchTab('gallery')">🖼 갤러리 (<span id="galCnt">0</span>)</div>
+  <div class="tab" onclick="switchTab('rename')">✏️ 리네이머</div>
   <div class="tab" onclick="switchTab('excel')">📊 파일인식</div>
 </div>
 
@@ -408,6 +415,46 @@ body{display:flex;flex-direction:column}
     <div id="galContent">
       <div class="empty"><div class="ic">🖼</div><p>저장된 사진이 없습니다</p></div>
     </div>
+  </div>
+
+  <!-- ══ 리네이머 탭 ══ -->
+  <div id="tab-rename" class="panel">
+    <div class="card">
+      <div class="card-hd" style="padding:10px 14px;border-bottom:1px solid var(--bdr);background:#f8f9fc">
+        <h3 style="font-size:12px;font-weight:700;color:var(--muted)">✏️ 파일명 리네이머</h3>
+      </div>
+      <div style="padding:12px 14px">
+        <p style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:10px">휴대폰 갤러리에서 사진을 추가하고 파일명을 <b>소재지 지번 지장물</b> 형식으로 정리해서 ZIP으로 다운로드해요.</p>
+
+        <!-- 사진 추가 버튼 -->
+        <label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border:2px dashed var(--blue);border-radius:10px;cursor:pointer;margin-bottom:10px;background:#f0f7ff">
+          <span style="font-size:20px">📷</span>
+          <span style="font-size:13px;font-weight:700;color:var(--blue)">사진 추가</span>
+          <input type="file" accept="image/*" multiple onchange="addRenamePhotos(event)" style="display:none">
+        </label>
+
+        <!-- 공통 입력 (한번에 채우기) -->
+        <div style="background:#f8f9fc;border-radius:8px;padding:10px;margin-bottom:10px">
+          <p style="font-size:10px;font-weight:700;color:var(--muted);margin-bottom:6px">📋 전체 일괄 입력</p>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <input id="rnBulkAddr" placeholder="소재지" list="addrList"
+              style="flex:1;min-width:80px;padding:6px 8px;font-size:12px;border:1px solid var(--bdr);border-radius:6px;font-family:inherit;outline:none">
+            <input id="rnBulkJibun" placeholder="지번"
+              style="flex:1;min-width:80px;padding:6px 8px;font-size:12px;border:1px solid var(--bdr);border-radius:6px;font-family:inherit;outline:none">
+            <input id="rnBulkName" placeholder="지장물명"
+              style="flex:1;min-width:80px;padding:6px 8px;font-size:12px;border:1px solid var(--bdr);border-radius:6px;font-family:inherit;outline:none">
+            <button onclick="applyBulkRename()" style="padding:6px 12px;font-size:11px;font-weight:700;background:var(--blue);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:inherit">적용</button>
+          </div>
+        </div>
+
+        <!-- 액션 버튼 -->
+        <div style="display:flex;gap:6px">
+          <button onclick="clearRenameList()" style="flex:1;padding:8px;font-size:11px;font-weight:700;border:1px solid var(--bdr);border-radius:6px;background:#f3f4f6;cursor:pointer;font-family:inherit">🗑 전체삭제</button>
+          <button onclick="downloadRenamed()" style="flex:2;padding:8px;font-size:12px;font-weight:700;border:none;border-radius:6px;background:var(--green);color:#fff;cursor:pointer;font-family:inherit">📦 ZIP 다운로드</button>
+        </div>
+      </div>
+    </div>
+    <div id="renameList"></div>
   </div>
 
   <!-- ══ 파일인식 탭 ══ -->
@@ -816,7 +863,10 @@ function renderTableRows(){
       ondragover="rowDragOver(event,${i})"
       ondragleave="this.style.borderTop=this.style.borderBottom=''"
       ondrop="rowDrop(event,${i})"
-      ondragend="rowDragEnd()">
+      ondragend="rowDragEnd()"
+      ontouchstart="touchRowStart(event,${i})"
+      ontouchmove="touchRowMove(event)"
+      ontouchend="touchRowEnd(event,${i})">
       <span style="font-size:18px;color:#bbb;cursor:grab;padding:0 2px;user-select:none">⠿</span>
       <input placeholder="항목명" value="${r.label}"
         oninput="tableRows[${i}].label=this.value;saveTableRows()"
@@ -933,6 +983,156 @@ function updateOv(){
   document.getElementById('ov-usage').textContent=getTableValue('usage')||'-';
   document.getElementById('ov-date').textContent=g('f-date')||'-';
 }
+// ══ 리네이머 ══
+let renameItems=[];
+
+function renderRenameList(){
+  buildRenameUI();
+}
+
+async function addRenamePhotos(e){
+  const files=Array.from(e.target.files);
+  e.target.value='';
+  if(!files.length) return;
+
+  toast('📷 사진 읽는 중...','ok');
+  for(const file of files){
+    const dataUrl=await new Promise(res=>{
+      const r=new FileReader();
+      r.onload=ev=>res(ev.target.result);
+      r.readAsDataURL(file);
+    });
+    const ext=file.name.split('.').pop().toLowerCase()||'jpg';
+    renameItems.push({
+      id:Date.now()+'_'+Math.random(),
+      dataUrl,
+      ext,
+      addr:'',
+      jibun:'',
+      name:'',
+    });
+  }
+  buildRenameUI();
+  toast('✅ '+files.length+'장 추가됨','ok');
+}
+
+function buildRenameUI(){
+  const el=document.getElementById('renameList');
+  if(!el) return;
+  if(!renameItems.length){
+    el.innerHTML='<div class="empty" style="margin:16px"><div class="ic">📷</div><p>위에서 사진을 추가해주세요</p></div>';
+    return;
+  }
+
+  // 미리보기 파일명 계산 (중복 처리)
+  const nameCount={};
+  const previews=renameItems.map(r=>{
+    const base=[r.addr,r.jibun,r.name].map(s=>s.trim()).filter(Boolean).join(' ');
+    if(!base) return '파일명없음.'+r.ext;
+    if(!nameCount[base]) nameCount[base]=0;
+    nameCount[base]++;
+    return base+'.'+r.ext;
+  });
+  // 중복된 이름에 _1, _2 붙이기
+  const nameIdx={};
+  const finalNames=renameItems.map((r,i)=>{
+    const base=[r.addr,r.jibun,r.name].map(s=>s.trim()).filter(Boolean).join(' ');
+    if(!base) return '파일명없음_'+i+'.'+r.ext;
+    const total=nameCount[base]||1;
+    if(total===1) return base+'.'+r.ext;
+    if(!nameIdx[base]) nameIdx[base]=1;
+    else nameIdx[base]++;
+    return base+'_'+nameIdx[base]+'.'+r.ext;
+  });
+
+  el.innerHTML=renameItems.map((r,i)=>`
+    <div class="rename-item" id="ri-${i}">
+      <div style="display:flex">
+        <div style="position:relative;flex-shrink:0">
+          <img class="rename-thumb" src="${r.dataUrl}" onerror="this.style.opacity='.2'">
+          <button onclick="delRenameItem(${i})" style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.5);border:none;color:#fff;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">✕</button>
+        </div>
+        <div class="rename-fields">
+          <input class="rename-input" placeholder="소재지" value="${r.addr}" list="addrList"
+            oninput="renameItems[${i}].addr=this.value;buildRenameUI()">
+          <input class="rename-input" placeholder="지번" value="${r.jibun}"
+            oninput="renameItems[${i}].jibun=this.value;buildRenameUI()">
+          <input class="rename-input" placeholder="지장물명" value="${r.name}"
+            oninput="renameItems[${i}].name=this.value;buildRenameUI()">
+          <div class="rename-preview">📄 ${finalNames[i]}</div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function delRenameItem(i){
+  renameItems.splice(i,1);
+  buildRenameUI();
+}
+
+function clearRenameList(){
+  if(!renameItems.length) return;
+  if(!confirm('전체 삭제할까요?')) return;
+  renameItems=[];
+  buildRenameUI();
+}
+
+function applyBulkRename(){
+  const addr=document.getElementById('rnBulkAddr').value.trim();
+  const jibun=document.getElementById('rnBulkJibun').value.trim();
+  const name=document.getElementById('rnBulkName').value.trim();
+  renameItems.forEach(r=>{
+    if(addr) r.addr=addr;
+    if(jibun) r.jibun=jibun;
+    if(name) r.name=name;
+  });
+  buildRenameUI();
+  toast('✅ 전체 적용됨','ok');
+}
+
+async function downloadRenamed(){
+  if(!renameItems.length){ toast('사진을 먼저 추가해주세요','err'); return; }
+  if(typeof JSZip==='undefined'){ toast('잠시 후 다시 시도해주세요','err'); return; }
+
+  toast('📦 ZIP 생성 중...','ok');
+  const zip=new JSZip();
+
+  // 최종 파일명 계산 (중복 처리)
+  const nameCount={};
+  renameItems.forEach(r=>{
+    const base=[r.addr,r.jibun,r.name].map(s=>s.trim()).filter(Boolean).join(' ');
+    if(!base) return;
+    nameCount[base]=(nameCount[base]||0)+1;
+  });
+  const nameIdx={};
+
+  for(const r of renameItems){
+    const base=[r.addr,r.jibun,r.name].map(s=>s.trim()).filter(Boolean).join(' ');
+    let fname;
+    if(!base){
+      fname='파일명없음_'+Date.now()+'.'+r.ext;
+    } else if(nameCount[base]===1){
+      fname=base+'.'+r.ext;
+    } else {
+      nameIdx[base]=(nameIdx[base]||0)+1;
+      fname=base+'_'+nameIdx[base]+'.'+r.ext;
+    }
+
+    const b64=r.dataUrl.split(',')[1];
+    if(b64) zip.file(fname, b64, {base64:true});
+  }
+
+  const blob=await zip.generateAsync({type:'blob'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  const d=new Date().toLocaleDateString('ko-KR').replace(/\.\s*/g,'-').replace(/-$/,'');
+  a.download='현장사진_'+d+'.zip';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('✅ ZIP 다운로드 완료 ('+renameItems.length+'장)','ok');
+}
+
 function renderChips(key){
   const opts=getOpts(key);
   const el=document.getElementById(key+'-chips');
@@ -1394,13 +1594,14 @@ function getDisplayPhotos(){
 
 // ══ GALLERY ══
 function switchTab(t){
-  const tabs=['survey','gallery','excel'];
+  const tabs=['survey','gallery','rename','excel'];
   document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('on',tabs[i]===t));
   tabs.forEach(name=>{
     const el=document.getElementById('tab-'+name);
     if(el) el.classList.toggle('on',name===t);
   });
   if(t==='gallery'){selectMode=false;selectedIdx.clear();renderGallery();}
+  if(t==='rename'){renderRenameList();}
 }
 function updateBadge(){
   const n=photos.length;
@@ -1524,41 +1725,90 @@ function renderGallery(){
 }
 
 // ── 이미지 뷰어 ──
-let viewerIdx=0, viewTab='both';
+let viewerIdx=0;
 
 async function openViewer(i){
   if(i<0||i>=photos.length) return;
   viewerIdx=i;
   const p=photos[i];
-  
-  // 로컬에 이미지 있으면 새 탭으로 열기
-  const src=p.editDataUrl||p.origDataUrl||null;
-  if(src){
-    const win=window.open('','_blank');
-    win.document.write('<html><body style="margin:0;background:#000;display:flex;flex-direction:column;align-items:center;min-height:100vh">');
-    if(p.editDataUrl&&p.origDataUrl){
-      win.document.write('<p style="color:#fff;font-size:12px;padding:10px">✏️ 수정본</p>');
-      win.document.write('<img src="'+p.editDataUrl+'" style="max-width:100%;margin-bottom:20px">');
-      win.document.write('<p style="color:#fff;font-size:12px;padding:10px">📷 원본</p>');
-      win.document.write('<img src="'+p.origDataUrl+'" style="max-width:100%">');
-    } else {
-      win.document.write('<img src="'+src+'" style="max-width:100%;max-height:100vh;object-fit:contain">');
-    }
-    win.document.write('<p style="color:#aaa;font-size:12px;padding:16px">'+p.fileName+'</p>');
-    win.document.write('</body></html>');
-    win.document.close();
+
+  // 기존 오버레이 제거
+  const old=document.getElementById('photoOv');
+  if(old) old.remove();
+
+  // 오버레이 생성
+  const ov=document.createElement('div');
+  ov.id='photoOv';
+  ov.style.cssText='position:fixed;inset:0;background:#000;z-index:9999;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column';
+
+  // 상단바
+  const hdr=document.createElement('div');
+  hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(0,0,0,.8);position:sticky;top:0;z-index:1;flex-shrink:0';
+  hdr.innerHTML='<span style="color:#fff;font-size:13px;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+
+    (p.fileName||'')+'</span>'+
+    '<div style="display:flex;gap:8px;flex-shrink:0">'+
+    '<button id="ovPrev" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer">◀</button>'+
+    '<button id="ovNext" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer">▶</button>'+
+    '<button id="ovClose" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:34px;height:34px;border-radius:50%;font-size:18px;cursor:pointer">✕</button>'+
+    '</div>';
+  ov.appendChild(hdr);
+
+  // 이미지 영역
+  const body=document.createElement('div');
+  body.style.cssText='flex:1;display:flex;flex-direction:column;align-items:center;gap:16px;padding:16px';
+  body.innerHTML='<div style="color:rgba(255,255,255,.6);font-size:13px;margin-top:40px">⏳ 불러오는 중...</div>';
+  ov.appendChild(body);
+  document.body.appendChild(ov);
+
+  // 버튼 이벤트
+  document.getElementById('ovClose').onclick=function(){ ov.remove(); };
+  document.getElementById('ovPrev').onclick=function(){ if(viewerIdx>0) openViewer(viewerIdx-1); };
+  document.getElementById('ovNext').onclick=function(){ if(viewerIdx<photos.length-1) openViewer(viewerIdx+1); };
+  document.getElementById('ovPrev').disabled=i===0;
+  document.getElementById('ovNext').disabled=i===photos.length-1;
+
+  // 이미지 로드
+  let origSrc=p.origDataUrl||null;
+  let editSrc=p.editDataUrl||null;
+
+  if(!origSrc&&p.hasOrigData){
+    origSrc=await getImageData(p.id,'orig');
+    if(origSrc) p.origDataUrl=origSrc;
+  }
+  if(!editSrc&&p.hasEditData){
+    editSrc=await getImageData(p.id,'edit');
+    if(editSrc) p.editDataUrl=editSrc;
+  }
+
+  body.innerHTML='';
+  if(!origSrc&&!editSrc){
+    body.innerHTML='<div style="color:rgba(255,255,255,.5);font-size:13px;margin-top:60px">이미지를 불러올 수 없습니다</div>';
     return;
   }
-  
-  // Firestore에서 불러오기
-  const d=await getImageData(p.id,'orig');
-  if(d){
-    p.origDataUrl=d;
-    openViewer(i);
-  } else {
-    toast('사진을 불러올 수 없습니다.','err');
+  if(editSrc){
+    const d=document.createElement('div');
+    d.style.cssText='width:100%;text-align:center';
+    d.innerHTML='<p style="color:rgba(255,255,255,.5);font-size:11px;margin-bottom:8px">✏️ 수정본</p>';
+    const img=document.createElement('img');
+    img.src=editSrc;
+    img.style.cssText='max-width:100%;border-radius:8px;display:block;margin:0 auto';
+    d.appendChild(img);
+    body.appendChild(d);
+  }
+  if(origSrc){
+    const d=document.createElement('div');
+    d.style.cssText='width:100%;text-align:center';
+    d.innerHTML='<p style="color:rgba(255,255,255,.5);font-size:11px;margin-bottom:8px">📷 원본</p>';
+    const img=document.createElement('img');
+    img.src=origSrc;
+    img.style.cssText='max-width:100%;border-radius:8px;display:block;margin:0 auto';
+    d.appendChild(img);
+    body.appendChild(d);
   }
 }
+
+function viewerPrev(){ if(viewerIdx>0) openViewer(viewerIdx-1); }
+function viewerNext(){ if(viewerIdx<photos.length-1) openViewer(viewerIdx+1); }
 
 async function showViewerPhoto(i){
   const p=photos[i];
@@ -1814,6 +2064,65 @@ function selectExcelRow(ri){
   // 현장조사 탭으로 이동
   switchTab('survey');
   toast('✅ '+addr+' '+jibun+' 입력됨','ok');
+}
+
+
+// 모바일 터치 드래그
+let touchDragSrc=null, touchStartY=0, touchClone=null;
+
+function touchRowStart(e,i){
+  touchDragSrc=i;
+  touchStartY=e.touches[0].clientY;
+  const row=e.currentTarget;
+  row.style.opacity='0.4';
+  // 드래그 중 스크롤 막기
+  document.body.style.overflow='hidden';
+}
+
+function touchRowMove(e){
+  if(touchDragSrc===null) return;
+  e.preventDefault();
+  const y=e.touches[0].clientY;
+  const rows=document.querySelectorAll('.extra-row');
+  // 어떤 행 위에 있는지 계산
+  rows.forEach((row,idx)=>{
+    row.style.borderTop='';
+    row.style.borderBottom='';
+    if(idx===touchDragSrc) return;
+    const rect=row.getBoundingClientRect();
+    if(y>rect.top&&y<rect.bottom){
+      if(y<rect.top+rect.height/2) row.style.borderTop='2.5px solid #3b82f6';
+      else row.style.borderBottom='2.5px solid #3b82f6';
+    }
+  });
+}
+
+function touchRowEnd(e,i){
+  if(touchDragSrc===null) return;
+  document.body.style.overflow='';
+  const y=e.changedTouches[0].clientY;
+  const rows=document.querySelectorAll('.extra-row');
+  let toIdx=touchDragSrc;
+
+  rows.forEach((row,idx)=>{
+    row.style.opacity='';
+    row.style.borderTop='';
+    row.style.borderBottom='';
+    if(idx===touchDragSrc) return;
+    const rect=row.getBoundingClientRect();
+    if(y>rect.top&&y<rect.bottom){
+      toIdx=idx;
+    }
+  });
+
+  if(toIdx!==touchDragSrc){
+    const moved=tableRows.splice(touchDragSrc,1)[0];
+    tableRows.splice(toIdx,0,moved);
+    saveTableRows();
+    renderTableRows();
+    toast('순서 변경됨','ok');
+  }
+  touchDragSrc=null;
 }
 
 function toast(msg,type=''){
