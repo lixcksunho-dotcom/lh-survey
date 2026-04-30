@@ -201,6 +201,13 @@ body{display:flex;flex-direction:column}
 .viewer-nav-btn:active{background:rgba(255,255,255,.3)}
 .viewer-nav-btn:disabled{opacity:.3;cursor:default}
 
+.extra-row{display:flex;gap:6px;align-items:center;margin-bottom:6px;transition:all .15s;border-radius:8px;padding:4px 6px;background:#fff;border:1.5px solid transparent}
+.extra-row.dragging{opacity:.3;transform:scale(.97)}
+.extra-row.drag-over{border-color:var(--blue);background:var(--blue-lt);transform:scale(1.02)}
+.extra-row input{flex:1;padding:6px 8px;font-size:12px;border:1px solid var(--bdr);border-radius:var(--rs);font-family:inherit;outline:none;-webkit-appearance:none}
+.extra-row input:focus{border-color:var(--blue)}
+.extra-row .del-row{width:26px;height:26px;border-radius:50%;border:1px solid #fca5a5;background:#fee2e2;color:var(--red);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:inherit}
+
 /* ── 옵션 모달 ── */
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;display:flex;align-items:flex-end;justify-content:center}
 .modal-bg.hidden{display:none}
@@ -266,7 +273,7 @@ body{display:flex;flex-direction:column}
       <p>울산사업본부 현장 조사 및 보상 데이터 관리</p>
     </div>
     <p style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:14px;font-weight:600">소속 팀을 선택해주세요</p>
-    <button class="team-btn" id="btnTeam2" onclick="selectTeam('sunho980')">
+    <button class="team-btn" id="btnTeam2">
       <span class="team-btn-ic">🏢</span>
       <span class="team-btn-txt">
         <span class="team-btn-name">울산사업본부 보상2팀</span>
@@ -274,7 +281,7 @@ body{display:flex;flex-direction:column}
       </span>
       <span class="team-btn-arrow">›</span>
     </button>
-    <button class="team-btn" id="btnTeam1" onclick="selectTeam('lh1team')">
+    <button class="team-btn" id="btnTeam1">
       <span class="team-btn-ic">🏢</span>
       <span class="team-btn-txt">
         <span class="team-btn-name">울산사업본부 보상1팀</span>
@@ -311,25 +318,29 @@ body{display:flex;flex-direction:column}
   <div id="tab-survey" class="panel on">
 
     <div class="card">
+      <!-- 소재지/지번/날짜는 고정 -->
       <div class="form-grid">
-        <div class="field"><label>소재지</label><input id="f-addr" placeholder="예: 성안동" oninput="updateOv()"></div>
+        <div class="field">
+          <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
+            <label>소재지</label>
+            <button class="edit-btn" onclick="openOpt('addr')">✎</button>
+          </div>
+          <input id="f-addr" placeholder="예: 성안동" oninput="updateOv()" list="addrList" autocomplete="off">
+          <datalist id="addrList"></datalist>
+        </div>
         <div class="field"><label>지번</label><input id="f-jibun" placeholder="서사리 153" oninput="updateOv()"></div>
       </div>
-      <div class="form-grid form-full" style="padding-top:6px;padding-bottom:6px">
+      <div class="form-grid form-full" style="padding-top:6px;padding-bottom:10px">
         <div class="field"><label>날짜</label><input id="f-date" type="date" oninput="updateOv()"></div>
       </div>
-      <div class="chip-sec">
-        <div class="chip-sec-hd"><label>지목</label><button class="edit-btn" onclick="openOpt('jiok')">✎</button></div>
-        <div class="chip-row" id="jiok-chips"></div>
-        <input class="chip-input" id="f-jiok" placeholder="직접 입력" oninput="updateOv();clearChips('jiok-chips')">
-      </div>
-      <div class="chip-sec" style="padding-top:6px;padding-bottom:8px">
-        <div class="chip-sec-hd"><label>이용현황</label><button class="edit-btn" onclick="openOpt('usage')">✎</button></div>
-        <div class="chip-row" id="usage-chips"></div>
-        <input class="chip-input" id="f-usage" placeholder="직접 입력" oninput="updateOv();clearChips('usage-chips')">
-      </div>
-      <div class="form-grid form-full" style="padding-top:0;padding-bottom:8px">
-        <div class="field"><label>비고</label><input id="f-comment" placeholder="선택사항"></div>
+
+      <!-- 드래그 가능한 표 항목 목록 -->
+      <div style="padding:0 8px 6px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <span style="font-size:10px;font-weight:700;color:var(--muted)">📋 표 항목 (드래그로 순서 변경)</span>
+          <button onclick="addTableRow()" style="padding:4px 10px;font-size:10px;font-weight:700;background:var(--blue);color:#fff;border:none;border-radius:12px;cursor:pointer;font-family:inherit">+ 추가</button>
+        </div>
+        <div id="tableRows"></div>
       </div>
     </div>
 
@@ -521,11 +532,50 @@ let swipeStartX=0, swipeStartY=0;
 let mC,oC,mX,oX;
 
 const DEF={
+  addr:['성안동','복산동','옥교동','교동','유곡동','우정동','태화동','다운동','신천동','화봉동','농소동','천곡동','중산동'],
   jiok:['전','답','대','구','도','임'],
   usage:['전','답','대','구','도','임']
 };
-const getOpts=k=>{try{const r=localStorage.getItem('lh_opts_'+k);return r?JSON.parse(r):DEF[k];}catch(e){return DEF[k];}};
-const setOpts=(k,v)=>localStorage.setItem('lh_opts_'+k,JSON.stringify(v));
+const getOpts=k=>{try{const r=localStorage.getItem('lh_opts_'+k);return r?JSON.parse(r):DEF[k]||[];}catch(e){return DEF[k]||[];}};
+const setOpts=(k,v)=>{
+  localStorage.setItem('lh_opts_'+k,JSON.stringify(v));
+  // datalist 업데이트 (null 체크)
+  if(k==='addr'){
+    const dl=document.getElementById('addrList');
+    if(dl) dl.innerHTML=v.map(o=>`<option value="${o}">`).join('');
+  }
+  // 칩 업데이트
+  if(k==='jiok'||k==='usage') renderTableRows();
+};
+
+// 표 항목 저장/불러오기
+function saveTableRows(){
+  const slim=tableRows.map(r=>({
+    id:r.id, label:r.label, value:r.value,
+    type:r.type, chipKey:r.chipKey||null,
+    deletable:r.deletable, editable:r.editable||false
+  }));
+  localStorage.setItem('lh_tablerows_'+(currentUser||'default'), JSON.stringify(slim));
+}
+
+function loadTableRows(){
+  try{
+    const saved=localStorage.getItem('lh_tablerows_'+(currentUser||'default'));
+    if(saved){
+      const parsed=JSON.parse(saved);
+      // 기본 항목은 유지하되 추가 항목 복원
+      const defaults=['jiok','usage','comment'];
+      // 기본 항목 값만 복원
+      parsed.forEach(r=>{
+        const existing=tableRows.find(x=>x.id===r.id);
+        if(existing) existing.value=r.value||'';
+      });
+      // 추가 항목 복원
+      const extras=parsed.filter(r=>r.deletable);
+      extras.forEach(r=>tableRows.push(r));
+    }
+  }catch(e){}
+}
 
 // ══ 팀 선택 ══
 function selectTeam(id){
@@ -555,8 +605,10 @@ function showApp(){
     const acc=ACCOUNTS[currentUser];
     document.getElementById('teamName').textContent=acc?acc.team:'';
     updateOv();
-    renderChips('jiok');
-    renderChips('usage');
+    initTableRows();
+    // 소재지 datalist 초기화
+    const addrDl=document.getElementById('addrList');
+    if(addrDl) addrDl.innerHTML=getOpts('addr').map(o=>`<option value="${o}">`).join('');
     // Firestore 로딩은 화면 전환 후 비동기로
     setTimeout(()=>{ try{loadFromFirestore();}catch(e){console.warn('Firestore 오류:',e);} }, 100);
   }catch(e){
@@ -611,10 +663,15 @@ async function initApp(){
     if(e.key==='Escape') closeViewer();
   });
 
+  // 팀 버튼 이벤트 연결
+  const btn2=document.getElementById('btnTeam2');
+  const btn1=document.getElementById('btnTeam1');
+  if(btn2) btn2.addEventListener('click',()=>selectTeam('sunho980'));
+  if(btn1) btn1.addEventListener('click',()=>selectTeam('lh1team'));
+
   // 자동 로그인 (Firebase 없어도 작동)
   const saved=localStorage.getItem('lh_session');
   if(saved && ACCOUNTS[saved]){ currentUser=saved; showApp(); }
-
 
 }
 
@@ -653,27 +710,184 @@ function compressForStorage(dataUrl){
   });
 }
 
-// ══ CHIPS - 다중 선택 ══
+// ══ 표 행 관리 (드래그 순서 변경) ══
+let tableRows=[
+  {id:'jiok',  label:'지목',    value:'', type:'chip', chipKey:'jiok',  deletable:false, editable:true},
+  {id:'usage', label:'이용현황', value:'', type:'chip', chipKey:'usage', deletable:false, editable:true},
+  {id:'comment',label:'비고',   value:'', type:'text', deletable:false, editable:false},
+];
+
+function initTableRows(){
+  loadTableRows();
+  renderTableRows();
+}
+
+function addTableRow(){
+  const id='extra_'+Date.now();
+  tableRows.push({id, label:'', value:'', type:'text', deletable:true, editable:false});
+  saveTableRows();
+  renderTableRows();
+}
+
+function delTableRow(id){
+  tableRows=tableRows.filter(r=>r.id!==id);
+  saveTableRows();
+  renderTableRows();
+}
+
+function renderTableRows(){
+  const el=document.getElementById('tableRows');
+  if(!el) return;
+  el.innerHTML=tableRows.map((r,i)=>`
+    <div class="extra-row" draggable="true"
+      ondragstart="rowDragStart(event,${i})"
+      ondragover="rowDragOver(event,${i})"
+      ondragleave="this.style.borderTop=this.style.borderBottom=''"
+      ondrop="rowDrop(event,${i})"
+      ondragend="rowDragEnd()">
+      <span style="font-size:18px;color:#bbb;cursor:grab;padding:0 2px;user-select:none">⠿</span>
+      <input placeholder="항목명" value="${r.label}"
+        oninput="tableRows[${i}].label=this.value;saveTableRows()"
+        ${!r.deletable?'readonly':''}
+        style="max-width:80px;${!r.deletable?'background:#f8f9fc;font-weight:700;color:var(--muted)':''}">
+      ${r.type==='chip'?`
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
+            <div class="chip-row" id="${r.id}-chips" style="flex-wrap:wrap;gap:3px;flex:1"></div>
+            ${r.editable?`<button class="edit-btn" onclick="openOpt('${r.chipKey}')">✎</button>`:''}
+          </div>
+          <input class="chip-input" id="f-${r.id}" placeholder="직접 입력" value="${r.value}"
+            oninput="tableRows[${i}].value=this.value;clearChips('${r.id}-chips');saveTableRows()"
+            style="width:100%" list="list-${r.id}">
+          <datalist id="list-${r.id}"></datalist>
+        </div>
+      `:`
+        <input placeholder="내용" value="${r.value}" style="flex:1"
+          oninput="tableRows[${i}].value=this.value;saveTableRows()"
+          ${r.id==='comment'?'':` list="list-${r.id}"`}>
+        <datalist id="list-${r.id}"></datalist>
+      `}
+      ${r.deletable?`<button class="del-row" onclick="delTableRow('${r.id}')">✕</button>`:'<span style="width:26px"></span>'}
+    </div>`).join('');
+
+  tableRows.forEach((r,i)=>{
+    if(r.type==='chip'&&r.chipKey){
+      const chipsEl=document.getElementById(r.id+'-chips');
+      if(!chipsEl) return;
+      const opts=getOpts(r.chipKey);
+      const selected=r.value.split(',').map(s=>s.trim()).filter(Boolean);
+      chipsEl.innerHTML=opts.map(o=>`
+        <button class="chip ${selected.includes(o)?'on':''}"
+          onclick="toggleTableChip('${r.id}',${i},'${o.replace(/'/g,"\'")}',this)">${o}</button>`
+      ).join('');
+      const dl=document.getElementById('list-'+r.id);
+      if(dl) dl.innerHTML=opts.map(o=>`<option value="${o}">`).join('');
+    }
+    if(r.deletable){
+      const dl=document.getElementById('list-'+r.id);
+      if(dl) dl.innerHTML=['면적','소유자','지상물','보상액','비고','기타'].map(o=>`<option value="${o}">`).join('');
+    }
+  });
+}
+
+let dragSrcIdx=null; // 드래그 소스 인덱스
+function rowDragStart(e,i){
+  dragSrcIdx=i;
+  const el=e.currentTarget;
+  setTimeout(()=>{ if(el) el.classList.add('dragging'); },0);
+  e.dataTransfer.effectAllowed='move';
+}
+function rowDragOver(e,i){
+  e.preventDefault();
+  if(dragSrcIdx===null||dragSrcIdx===i) return;
+  const rows=document.querySelectorAll('.extra-row');
+  rows.forEach(x=>{x.style.borderTop='';x.style.borderBottom='';});
+  const rect=e.currentTarget.getBoundingClientRect();
+  if(e.clientY<rect.top+rect.height/2){
+    e.currentTarget.style.borderTop='2.5px solid var(--blue)';
+  } else {
+    e.currentTarget.style.borderBottom='2.5px solid var(--blue)';
+  }
+}
+function rowDrop(e,i){
+  e.preventDefault();
+  if(dragSrcIdx===null) return;
+  const rect=e.currentTarget.getBoundingClientRect();
+  const insertBefore=e.clientY<rect.top+rect.height/2;
+  const moved=tableRows.splice(dragSrcIdx,1)[0];
+  let toIdx=tableRows.indexOf(tableRows[insertBefore?i:i]);
+  const newIdx=insertBefore?(dragSrcIdx<i?i-1:i):(dragSrcIdx<i?i:i+1);
+  tableRows.splice(Math.max(0,Math.min(newIdx,tableRows.length)),0,moved);
+  dragSrcIdx=null;
+  saveTableRows();
+  renderTableRows();
+}
+function rowDragEnd(){
+  dragSrcIdx=null;
+  document.querySelectorAll('.extra-row').forEach(x=>{
+    x.classList.remove('dragging');
+    x.style.borderTop=x.style.borderBottom='';
+  });
+}
+
+function toggleTableChip(rowId, rowIdx, val, btn){
+  const row=tableRows[rowIdx];
+  if(!row) return;
+  btn.classList.toggle('on');
+  const selected=[];
+  btn.closest('.chip-row').querySelectorAll('.chip.on').forEach(c=>selected.push(c.textContent));
+  row.value=selected.join(', ');
+  const input=document.getElementById('f-'+rowId);
+  if(input) input.value=row.value;
+  saveTableRows();
+}
+
+
+// 기존 함수 호환성 유지
+function getTableValue(key){
+  const r=tableRows.find(x=>x.id===key||x.chipKey===key);
+  return r?r.value:'';
+}
+
+// updateOv 오버라이드
+function updateOv(){
+  const g=id=>{
+    const el=document.getElementById(id);
+    return el?el.value.trim():getTableValue(id);
+  };
+  document.getElementById('ov-addr').textContent=g('f-addr')||'-';
+  document.getElementById('ov-jibun').textContent=g('f-jibun')||'-';
+  document.getElementById('ov-jiok').textContent=getTableValue('jiok')||'-';
+  document.getElementById('ov-usage').textContent=getTableValue('usage')||'-';
+  document.getElementById('ov-date').textContent=g('f-date')||'-';
+}
 function renderChips(key){
   const opts=getOpts(key);
-  document.getElementById(key+'-chips').innerHTML=
-    opts.map(o=>`<button class="chip" onclick="toggleChip('${key}','${o.replace(/'/g,"\\'")}',this)">${o}</button>`).join('');
+  const el=document.getElementById(key+'-chips');
+  if(!el) return;
+  el.innerHTML=opts.map(o=>`<button class="chip" onclick="toggleChip('${key}','${o.replace(/'/g,"\\'")}',this)">${o}</button>`).join('');
 }
 function toggleChip(key,val,btn){
   btn.classList.toggle('on');
-  // 선택된 칩들 모아서 input에 반영
   const selected=[];
   btn.closest('.chip-row').querySelectorAll('.chip.on').forEach(c=>selected.push(c.textContent));
-  document.getElementById('f-'+key).value=selected.join(', ');
+  const input=document.getElementById('f-'+key);
+  if(input) input.value=selected.join(', ');
   updateOv();
 }
 function pickChip(key,val,btn){toggleChip(key,val,btn);}
-function clearChips(id){document.getElementById(id).querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));}
+function clearChips(id){
+  const el=document.getElementById(id);
+  if(el) el.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+}
 
 // ══ OPTION EDITOR ══
 function openOpt(key){
   curOptKey=key; curOptItems=[...getOpts(key)];
-  document.getElementById('optTitle').textContent=key==='jiok'?'지목 옵션 편집':'이용현황 옵션 편집';
+  document.getElementById('optTitle').textContent=
+    key==='jiok'?'지목 옵션 편집':
+    key==='usage'?'이용현황 옵션 편집':
+    key==='addr'?'소재지 목록 편집':'옵션 편집';
   renderOptList(); document.getElementById('optModal').classList.remove('hidden');
 }
 function renderOptList(){
@@ -687,16 +901,6 @@ function addOptItem(){curOptItems.push('');renderOptList();const ins=document.ge
 function delOptItem(i){curOptItems.splice(i,1);renderOptList();}
 function saveOpt(){const f=curOptItems.map(v=>v.trim()).filter(Boolean);setOpts(curOptKey,f);renderChips(curOptKey);closeOpt();toast('옵션 저장됨','ok');}
 function closeOpt(){document.getElementById('optModal').classList.add('hidden');}
-
-// ══ PREVIEW ══
-function updateOv(){
-  const g=id=>document.getElementById(id).value.trim()||'-';
-  document.getElementById('ov-addr').textContent=g('f-addr');
-  document.getElementById('ov-jibun').textContent=g('f-jibun');
-  document.getElementById('ov-jiok').textContent=g('f-jiok');
-  document.getElementById('ov-usage').textContent=g('f-usage');
-  document.getElementById('ov-date').textContent=g('f-date');
-}
 
 // ══ LOCAL STORAGE ══
 function storageKey(){return 'lh_photos_'+(currentUser||'default');}
@@ -776,9 +980,9 @@ function autoSaveOrig(img, dataUrl){
     id,baseName:base,fileName,
     date:document.getElementById('f-date').value,
     addr,jibun,
-    jiok:document.getElementById('f-jiok').value.trim(),
-    usage:document.getElementById('f-usage').value.trim(),
-    comment:document.getElementById('f-comment').value.trim(),
+    jiok:getTableValue('jiok'),
+    usage:getTableValue('usage'),
+    comment:getTableValue('comment'),
     savedAt:new Date().toISOString(),
     origDataUrl:dataUrl, origSaved:true,
     editDataUrl:null, editSaved:false,
@@ -843,9 +1047,13 @@ function setSt(t){document.getElementById('sbar').textContent=t;}
 
 // ══ INFO TABLE - 검정 테두리, 흰 배경 ══
 function drawTable(ctx,W,H){
-  const v=id=>document.getElementById(id).value.trim()||'-';
-  const rows=[['소재지',v('f-addr')],['지번',v('f-jibun')],['지목',v('f-jiok')],['이용현황',v('f-usage')],['날짜',v('f-date')]];
-  const cm=v('f-comment'); if(cm!=='-')rows.push(['비고',cm]);
+  const v=id=>{const el=document.getElementById(id);return el?el.value.trim():'';};
+  const rows=[['소재지',v('f-addr')],['지번',v('f-jibun')],['날짜',v('f-date')]].filter(r=>r[1]);
+  // tableRows에서 순서대로 추가
+  tableRows.forEach(r=>{
+    const val=r.value.trim();
+    if(r.label.trim()) rows.push([r.label.trim(), val||'-']);
+  });
 
   const tw=Math.max(180,Math.round(W*.26));
   const labelW=Math.round(tw*.38);
@@ -1184,7 +1392,7 @@ function renderGallery(){
     html+=`<div class="gal-grid${selectMode?' select-mode':''}">`;
     groups[date].forEach(({p,origIdx:i})=>{
       const src=p.editDataUrl||p.origDataUrl||'';
-      html+=`<div class="gal-item${selectedIdx.has(i)?' selected':''}" style="cursor:default">
+      html+=`<div class="gal-item${selectedIdx.has(i)?' selected':''}" onclick="selectMode?toggleSelect(${i}):openViewer(${i})" style="cursor:pointer">
         <div class="sel-check">✓</div>
         <img class="gal-thumb" id="thumb-${p.id}" src="${src}" alt="${p.fileName}" onerror="this.style.opacity='.2'">
         <div class="gal-info">
@@ -1469,8 +1677,8 @@ function selectExcelRow(ri){
   // 현장조사 탭에 자동 입력
   document.getElementById('f-addr').value=addr;
   document.getElementById('f-jibun').value=jibun;
-  document.getElementById('f-jiok').value=jiok;
-  document.getElementById('f-usage').value=usage;
+  const jiokRow=tableRows.find(r=>r.id==='jiok');if(jiokRow)jiokRow.value=jiok;renderTableRows();
+  const usageRow=tableRows.find(r=>r.id==='usage');if(usageRow)usageRow.value=usage;
   updateOv();
 
   // 칩 초기화
