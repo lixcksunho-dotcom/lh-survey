@@ -8,6 +8,8 @@
 <title>LH 현장조사</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -669,7 +671,16 @@ async function initApp(){
   if(btn2) btn2.addEventListener('click',()=>selectTeam('sunho980'));
   if(btn1) btn1.addEventListener('click',()=>selectTeam('lh1team'));
 
-  // 자동 로그인 (Firebase 없어도 작동)
+  // Firebase 초기화
+  try{
+    if(typeof firebase!=='undefined'){
+      if(!firebase.apps.length) firebase.initializeApp(FB_CONFIG);
+      db=firebase.firestore();
+      console.log('✅ Firebase 연결 성공');
+    }
+  }catch(e){ console.warn('Firebase 연결 실패:', e.message); }
+
+  // 자동 로그인
   const saved=localStorage.getItem('lh_session');
   if(saved && ACCOUNTS[saved]){ currentUser=saved; showApp(); }
 
@@ -682,18 +693,84 @@ if(document.readyState==='loading'){
   initApp();
 }
 
-// ══ FIRESTORE 저장/불러오기 ══
-// ══ 저장/불러오기 (로컬스토리지) ══
-function saveToFirestore(entry){ saveLocal(); return Promise.resolve(); }
-function loadFromFirestore(){ loadLocal(); updateBadge(); renderGallery(); setSt('✅ 갤러리 불러옴'); return Promise.resolve(); }
-function getImageData(entryId, type){
-  const p=photos.find(x=>x.id===entryId);
-  if(!p) return Promise.resolve(null);
-  return Promise.resolve(type==='edit'?p.editDataUrl:p.origDataUrl);
-}
-function deleteFromFirestore(id){ return Promise.resolve(); }
+// ══ 저장/불러오기 (Firestore) ══
+let db=null;
 
-// 저장용 압축
+function fsCol(){
+  return db.collection('lh_photos').doc(currentUser).collection('photos');
+}
+
+async function saveToFirestore(entry){
+  if(!db){ saveLocal(); return; }
+  try{
+    await fsCol().doc(entry.id).set({
+      id:entry.id, baseName:entry.baseName, fileName:entry.fileName,
+      date:entry.date, addr:entry.addr, jibun:entry.jibun,
+      jiok:entry.jiok, usage:entry.usage, comment:entry.comment||'',
+      savedAt:entry.savedAt,
+      origSaved:entry.origSaved||false, editSaved:entry.editSaved||false,
+      hasOrigData:!!entry.origDataUrl, hasEditData:!!entry.editDataUrl,
+    });
+    // 이미지 데이터 저장
+    if(entry.origDataUrl){
+      const comp=await compressForStorage(entry.origDataUrl);
+      await fsCol().doc(entry.id).collection('data').doc('orig').set({dataUrl:comp});
+    }
+    if(entry.editDataUrl){
+      const comp=await compressForStorage(entry.editDataUrl);
+      await fsCol().doc(entry.id).collection('data').doc('edit').set({dataUrl:comp});
+    }
+    saveLocal();
+  }catch(e){ console.error('Firestore 저장 오류:',e); saveLocal(); }
+}
+
+async function loadFromFirestore(){
+  if(!db){ loadLocal(); updateBadge(); renderGallery(); return; }
+  setSt('☁️ 갤러리 불러오는 중...');
+  try{
+    const snap=await fsCol().orderBy('savedAt','desc').get();
+    photos=[];
+    snap.forEach(doc=>photos.push({...doc.data()}));
+    updateBadge();
+    renderGallery();
+    setSt(photos.length>0?'✅ '+photos.length+'장 불러옴':'사진을 선택하면 자동 저장됩니다.');
+    toast('☁️ 갤러리 동기화 완료 ('+photos.length+'장)','ok');
+  }catch(e){
+    setSt('⚠️ 갤러리 불러오기 실패');
+    loadLocal(); updateBadge(); renderGallery();
+  }
+}
+
+async function getImageData(entryId, type){
+  // 로컬에 있으면 바로 반환
+  const p=photos.find(x=>x.id===entryId);
+  if(p){
+    if(type==='orig'&&p.origDataUrl) return p.origDataUrl;
+    if(type==='edit'&&p.editDataUrl) return p.editDataUrl;
+  }
+  // Firestore에서 가져오기
+  if(!db) return null;
+  try{
+    const doc=await fsCol().doc(entryId).collection('data').doc(type).get();
+    if(doc.exists){
+      const data=doc.data().dataUrl;
+      // 캐시
+      if(p){ if(type==='orig') p.origDataUrl=data; else p.editDataUrl=data; }
+      return data;
+    }
+  }catch(e){}
+  return null;
+}
+
+async function deleteFromFirestore(id){
+  if(!db) return;
+  try{
+    await fsCol().doc(id).collection('data').doc('orig').delete();
+    await fsCol().doc(id).collection('data').doc('edit').delete();
+    await fsCol().doc(id).delete();
+  }catch(e){}
+}
+
 function compressForStorage(dataUrl){
   return new Promise(resolve=>{
     const img=new Image();
@@ -704,8 +781,9 @@ function compressForStorage(dataUrl){
       c.width=Math.round(img.width*sc);
       c.height=Math.round(img.height*sc);
       c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-      resolve(c.toDataURL('image/jpeg',0.6));
+      resolve(c.toDataURL('image/jpeg',0.7));
     };
+    img.onerror=()=>resolve(dataUrl);
     img.src=dataUrl;
   });
 }
@@ -911,14 +989,25 @@ function saveLocal(){
       date:p.date,addr:p.addr,jibun:p.jibun,
       jiok:p.jiok,usage:p.usage,comment:p.comment,
       savedAt:p.savedAt,
-      origCloudUrl:p.origCloudUrl,origSaved:p.origSaved,
-      editCloudUrl:p.editCloudUrl,editSaved:p.editSaved,
-      // 로컬 fallback (클라우드 저장 전)
-      origDataUrl:p.origSaved?null:p.origDataUrl?.substring(0,40000),
-      editDataUrl:p.editSaved?null:p.editDataUrl?.substring(0,40000),
+      origSaved:p.origSaved, editSaved:p.editSaved,
+      hasOrigData:p.hasOrigData, hasEditData:p.hasEditData,
+      // 항상 저장 (Firebase 없으므로 로컬에 보관)
+      origDataUrl:p.origDataUrl?p.origDataUrl.substring(0,80000):null,
+      editDataUrl:p.editDataUrl?p.editDataUrl.substring(0,80000):null,
     }));
     localStorage.setItem(storageKey(),JSON.stringify(slim));
-  }catch(e){}
+  }catch(e){
+    // 용량 초과시 dataUrl 제외하고 저장
+    try{
+      const slim=photos.map(p=>({
+        id:p.id,baseName:p.baseName,fileName:p.fileName,
+        date:p.date,addr:p.addr,jibun:p.jibun,
+        jiok:p.jiok,usage:p.usage,comment:p.comment,
+        savedAt:p.savedAt, origSaved:p.origSaved, editSaved:p.editSaved,
+      }));
+      localStorage.setItem(storageKey(),JSON.stringify(slim));
+    }catch(e2){}
+  }
 }
 function loadLocal(){
   try{const r=localStorage.getItem(storageKey());if(r){photos=JSON.parse(r);updateBadge();}}catch(e){}
