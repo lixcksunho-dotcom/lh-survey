@@ -1012,8 +1012,23 @@ async function aiRenameAll(){
     buildTransferUI();
 
     try{
-      const b64=r.dataUrl.split(',')[1];
-      const mime=r.dataUrl.split(';')[0].split(':')[1]||'image/jpeg';
+      // 이미지 압축 (Vercel 4.5MB 제한 대응)
+      const compressed=await new Promise(res=>{
+        const img=new Image();
+        img.onload=()=>{
+          const MAX=1200;
+          const sc=Math.min(1,MAX/Math.max(img.width,img.height));
+          const cv=document.createElement('canvas');
+          cv.width=Math.round(img.width*sc);
+          cv.height=Math.round(img.height*sc);
+          cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+          res(cv.toDataURL('image/jpeg',0.85));
+        };
+        img.src=r.dataUrl;
+      });
+
+      const b64=compressed.split(',')[1];
+      const mime='image/jpeg';
 
       const res=await fetch(AI_API_URL,{
         method:'POST',
