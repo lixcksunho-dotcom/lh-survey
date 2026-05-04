@@ -1023,6 +1023,7 @@ async function aiRenameAll(){
 
       if(!res.ok) throw new Error('서버오류 '+res.status);
       const data=await res.json();
+      console.log('AI 응답:', data);
       if(data.error) throw new Error(data.error);
 
       const addr=(data.addr||'').trim();
@@ -1036,6 +1037,7 @@ async function aiRenameAll(){
 
       r.newName=(base||r.origName.replace(/\.[^.]+$/,''))+'.'+r.ext;
       r.aiDone=true;
+      toast('🤖 '+(i+1)+'번: '+(base||'인식실패'),'ok');
     }catch(e){
       console.error('AI 분석 실패:',e);
       r.newName=r.origName;
