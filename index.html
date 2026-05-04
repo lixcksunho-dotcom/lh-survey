@@ -441,6 +441,9 @@ body{display:flex;flex-direction:column}
           <span id="transferCount" style="font-size:12px;font-weight:700;color:var(--muted)">0장 선택됨</span>
           <button onclick="clearTransferList()" style="padding:5px 10px;font-size:11px;border:1px solid var(--bdr);border-radius:6px;background:#f3f4f6;cursor:pointer;font-family:inherit">전체삭제</button>
         </div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button onclick="aiRenameAll()" style="flex:1;padding:10px;font-size:12px;font-weight:700;border:none;border-radius:8px;background:#7c3aed;color:#fff;cursor:pointer;font-family:inherit">🤖 AI 파일명 자동인식</button>
+        </div>
         <div style="display:flex;gap:8px">
           <button onclick="addToGallery()" style="flex:1;padding:10px;font-size:12px;font-weight:700;border:none;border-radius:8px;background:var(--blue);color:#fff;cursor:pointer;font-family:inherit">🖼 갤러리에 추가</button>
           <button onclick="downloadTransferZip()" style="flex:1;padding:10px;font-size:12px;font-weight:700;border:none;border-radius:8px;background:var(--green);color:#fff;cursor:pointer;font-family:inherit">📦 ZIP 다운로드</button>
@@ -997,8 +1000,11 @@ async function addTransferPhotos(e){
     transferItems.push({
       id:'tr_'+Date.now()+'_'+Math.random().toString(36).slice(2),
       dataUrl,
-      fileName:file.name,
+      origName:file.name,
+      newName:'',
       ext:file.name.split('.').pop().toLowerCase()||'jpg',
+      aiDone:false,
+      aiLoading:false,
     });
   }
   buildTransferUI();
@@ -1015,19 +1021,106 @@ function buildTransferUI(){
     return;
   }
   el.innerHTML=transferItems.map((r,i)=>`
-    <div style="margin:8px;border-radius:10px;overflow:hidden;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.07);display:flex;align-items:center;gap:10px;padding:8px">
-      <img src="${r.dataUrl}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;flex-shrink:0">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:11px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.fileName}</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px">${(r.dataUrl.length/1024/1.37).toFixed(0)}KB</div>
+    <div style="margin:8px;border-radius:10px;overflow:hidden;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.07)">
+      <div style="display:flex;align-items:center;gap:10px;padding:8px">
+        <img src="${r.dataUrl}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;flex-shrink:0">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.origName}</div>
+          ${r.aiDone?`<div style="font-size:12px;font-weight:700;color:#7c3aed;word-break:break-all">✅ ${r.newName||r.origName}</div>`
+            :r.aiLoading?`<div style="font-size:11px;color:var(--muted)">🤖 분석 중...</div>`
+            :`<input value="${r.newName||''}" placeholder="파일명 (AI 인식 후 자동입력)"
+              oninput="transferItems[${i}].newName=this.value"
+              style="width:100%;padding:5px 8px;font-size:11px;border:1px solid var(--bdr);border-radius:5px;font-family:inherit;outline:none">`}
+        </div>
+        <button onclick="delTransferItem(${i})" style="width:28px;height:28px;border-radius:50%;border:1px solid #fca5a5;background:#fee2e2;color:var(--red);cursor:pointer;font-size:12px;flex-shrink:0">✕</button>
       </div>
-      <button onclick="delTransferItem(${i})" style="width:28px;height:28px;border-radius:50%;border:1px solid #fca5a5;background:#fee2e2;color:var(--red);cursor:pointer;font-size:12px;flex-shrink:0">✕</button>
     </div>`).join('');
 }
 
 function delTransferItem(i){
   transferItems.splice(i,1);
   buildTransferUI();
+}
+
+// AI 자동 파일명 인식
+async function aiRenameAll(){
+  if(!transferItems.length){ toast('사진을 먼저 선택해주세요','err'); return; }
+
+  toast('🤖 AI가 표를 인식 중...','ok');
+
+  // 이름 카운터 (중복처리용)
+  const nameCount={};
+
+  for(let i=0;i<transferItems.length;i++){
+    const r=transferItems[i];
+    r.aiLoading=true;
+    r.aiDone=false;
+    buildTransferUI();
+
+    try{
+      // base64 추출
+      const b64=r.dataUrl.split(',')[1];
+      const mime=r.dataUrl.split(';')[0].split(':')[1]||'image/jpeg';
+
+      const res=await fetch('/api/analyze-image',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({imageBase64:b64, mimeType:mime})
+      });
+
+      const data=await res.json();
+      const addr=(data.addr||'').trim();
+      const jibun=(data.jibun||'').trim();
+      const name=(data.name||'').trim();
+
+      // 파일명 조합: "성안동 153(그물망)"
+      const parts=[];
+      if(addr) parts.push(addr);
+      if(jibun) parts.push(jibun);
+      const base=parts.join(' ')+(name?'('+name+')':'');
+
+      // 중복 처리: _1, _2
+      if(base){
+        nameCount[base]=(nameCount[base]||0)+1;
+        const suffix=nameCount[base]>1?'_'+nameCount[base]:'';
+        r.newName=base+suffix+'.'+r.ext;
+      } else {
+        r.newName=r.origName;
+      }
+
+      r.aiDone=true;
+    }catch(e){
+      r.newName=r.origName;
+      r.aiDone=false;
+    }
+
+    r.aiLoading=false;
+    buildTransferUI();
+  }
+
+  // 중복 처리 재계산 (첫번째도 _1 붙이기)
+  const finalCount={};
+  transferItems.forEach(r=>{
+    const base=r.newName.replace(/(_\d+)?(\.[^.]+)$/,'$2');
+    finalCount[base]=(finalCount[base]||0)+1;
+  });
+  const finalIdx={};
+  transferItems.forEach(r=>{
+    const m=r.newName.match(/^(.+?)(\.[^.]+)$/);
+    if(!m) return;
+    const nameOnly=m[1].replace(/_\d+$/,'');
+    const ext=m[2];
+    const key=nameOnly+ext;
+    if(finalCount[key]>1){
+      finalIdx[key]=(finalIdx[key]||0)+1;
+      r.newName=nameOnly+'_'+finalIdx[key]+ext;
+    } else {
+      r.newName=nameOnly+ext;
+    }
+  });
+
+  buildTransferUI();
+  toast('✅ AI 파일명 인식 완료!','ok');
 }
 
 function clearTransferList(){
@@ -1073,7 +1166,8 @@ async function downloadTransferZip(){
   const zip=new JSZip();
   for(const r of transferItems){
     const b64=r.dataUrl.split(',')[1];
-    if(b64) zip.file(r.fileName, b64, {base64:true});
+    const fname=r.newName||r.origName||r.fileName||('사진_'+Date.now()+'.jpg');
+    if(b64) zip.file(fname, b64, {base64:true});
   }
   const blob=await zip.generateAsync({type:'blob'});
   const url=URL.createObjectURL(blob);
