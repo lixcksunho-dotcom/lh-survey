@@ -318,7 +318,6 @@ body{display:flex;flex-direction:column}
   <div class="tab on" onclick="switchTab('survey')">📋 현장조사</div>
   <div class="tab" onclick="switchTab('gallery')">🖼 갤러리 (<span id="galCnt">0</span>)</div>
   <div class="tab" onclick="switchTab('rename')">📤 갤러리 전송</div>
-  <div class="tab" onclick="switchTab('excel')">📊 파일인식</div>
 </div>
 
 <div class="scroll" id="appScroll">
@@ -455,49 +454,6 @@ body{display:flex;flex-direction:column}
     <div id="transferList"></div>
   </div>
 
-  <!-- ══ 파일인식 탭 ══ -->
-  <div id="tab-excel" class="panel">
-
-    <!-- 엑셀 파일 업로드 -->
-    <div class="card">
-      <div class="card-hd" style="padding:10px 14px;border-bottom:1px solid var(--bdr);background:#f8f9fc">
-        <h3 style="font-size:12px;font-weight:700;color:var(--muted)">📊 엑셀 파일 업로드</h3>
-      </div>
-      <div style="padding:14px">
-        <p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">엑셀 파일을 업로드하면 AI가 소재지·지번·지목을 자동으로 인식해요.</p>
-        <label class="excel-upload-zone" for="excelInput">
-          <span style="font-size:28px;display:block;margin-bottom:8px">📂</span>
-          <span style="font-size:13px;font-weight:700;color:var(--blue)">엑셀 파일 선택</span>
-          <span style="font-size:11px;color:var(--muted);display:block;margin-top:4px">.xlsx, .xls, .csv 지원</span>
-        </label>
-        <input type="file" id="excelInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="loadExcel(event)">
-      </div>
-    </div>
-
-    <!-- AI 분석 결과 -->
-    <div class="card hidden" id="excelResultCard">
-      <div class="card-hd" style="padding:10px 14px;border-bottom:1px solid var(--bdr);background:#f8f9fc;display:flex;align-items:center;justify-content:space-between">
-        <h3 style="font-size:12px;font-weight:700;color:var(--muted)">🤖 AI 인식 결과</h3>
-        <span id="excelRowCount" style="font-size:11px;color:var(--muted)"></span>
-      </div>
-      <div id="excelAiStatus" style="padding:12px 14px;font-size:12px;color:var(--blue);font-weight:600;display:flex;align-items:center;gap:8px">
-        <span class="ai-spin">⏳</span> AI가 파일을 분석 중입니다...
-      </div>
-      <div id="excelMappingArea" class="hidden" style="padding:14px">
-        <div style="margin-bottom:12px">
-          <p style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px">컬럼 매핑 확인 (수정 가능)</p>
-          <div class="excel-map-grid">
-            <div class="excel-map-row"><span class="excel-map-lbl">소재지</span><select id="mapAddr" class="excel-map-sel"></select></div>
-            <div class="excel-map-row"><span class="excel-map-lbl">지번</span><select id="mapJibun" class="excel-map-sel"></select></div>
-            <div class="excel-map-row"><span class="excel-map-lbl">지목</span><select id="mapJiok" class="excel-map-sel"></select></div>
-            <div class="excel-map-row"><span class="excel-map-lbl">이용현황</span><select id="mapUsage" class="excel-map-sel"></select></div>
-          </div>
-        </div>
-        <div id="excelPreview" style="overflow-x:auto;margin-bottom:12px"></div>
-        <p style="font-size:11px;color:var(--muted);margin-bottom:8px">행을 클릭하면 현장조사 탭에 자동 입력돼요</p>
-      </div>
-    </div>
-  </div>
 
 </div>
 
@@ -1043,13 +999,12 @@ function delTransferItem(i){
 }
 
 // AI 자동 파일명 인식
+const AI_API_URL='https://lh-survey.vercel.app/api/analyze-image';
+
 async function aiRenameAll(){
   if(!transferItems.length){ toast('사진을 먼저 선택해주세요','err'); return; }
 
-  toast('🤖 AI가 표를 인식 중...','ok');
-
-  // 이름 카운터 (중복처리용)
-  const nameCount={};
+  toast('🤖 AI가 표를 인식 중... (사진당 5~10초)','ok');
 
   for(let i=0;i<transferItems.length;i++){
     const r=transferItems[i];
@@ -1058,64 +1013,50 @@ async function aiRenameAll(){
     buildTransferUI();
 
     try{
-      // base64 추출
       const b64=r.dataUrl.split(',')[1];
       const mime=r.dataUrl.split(';')[0].split(':')[1]||'image/jpeg';
 
-      const res=await fetch('/api/analyze-image',{
+      const res=await fetch(AI_API_URL,{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({imageBase64:b64, mimeType:mime})
       });
 
+      if(!res.ok) throw new Error('서버오류 '+res.status);
       const data=await res.json();
+      if(data.error) throw new Error(data.error);
+
       const addr=(data.addr||'').trim();
       const jibun=(data.jibun||'').trim();
       const name=(data.name||'').trim();
 
-      // 파일명 조합: "성안동 153(그물망)"
       const parts=[];
       if(addr) parts.push(addr);
       if(jibun) parts.push(jibun);
       const base=parts.join(' ')+(name?'('+name+')':'');
 
-      // 중복 처리: _1, _2
-      if(base){
-        nameCount[base]=(nameCount[base]||0)+1;
-        const suffix=nameCount[base]>1?'_'+nameCount[base]:'';
-        r.newName=base+suffix+'.'+r.ext;
-      } else {
-        r.newName=r.origName;
-      }
-
+      r.newName=(base||r.origName.replace(/\.[^.]+$/,''))+'.'+r.ext;
       r.aiDone=true;
     }catch(e){
+      console.error('AI 분석 실패:',e);
       r.newName=r.origName;
       r.aiDone=false;
+      toast('⚠️ '+(i+1)+'번째 사진 인식 실패: '+e.message,'err');
     }
 
     r.aiLoading=false;
     buildTransferUI();
   }
 
-  // 중복 처리 재계산 (첫번째도 _1 붙이기)
-  const finalCount={};
+  // 중복 파일명에 _1, _2 붙이기
+  const nameCount={};
+  transferItems.forEach(r=>{ nameCount[r.newName]=(nameCount[r.newName]||0)+1; });
+  const nameIdx={};
   transferItems.forEach(r=>{
-    const base=r.newName.replace(/(_\d+)?(\.[^.]+)$/,'$2');
-    finalCount[base]=(finalCount[base]||0)+1;
-  });
-  const finalIdx={};
-  transferItems.forEach(r=>{
-    const m=r.newName.match(/^(.+?)(\.[^.]+)$/);
-    if(!m) return;
-    const nameOnly=m[1].replace(/_\d+$/,'');
-    const ext=m[2];
-    const key=nameOnly+ext;
-    if(finalCount[key]>1){
-      finalIdx[key]=(finalIdx[key]||0)+1;
-      r.newName=nameOnly+'_'+finalIdx[key]+ext;
-    } else {
-      r.newName=nameOnly+ext;
+    if(nameCount[r.newName]>1){
+      nameIdx[r.newName]=(nameIdx[r.newName]||0)+1;
+      const m=r.newName.match(/^(.+)(\.[^.]+)$/);
+      if(m) r.newName=m[1]+'_'+nameIdx[r.newName]+m[2];
     }
   });
 
@@ -1645,7 +1586,7 @@ function getDisplayPhotos(){
 
 // ══ GALLERY ══
 function switchTab(t){
-  const tabs=['survey','gallery','rename','excel'];
+  const tabs=['survey','gallery','rename'];
   document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('on',tabs[i]===t));
   tabs.forEach(name=>{
     const el=document.getElementById('tab-'+name);
