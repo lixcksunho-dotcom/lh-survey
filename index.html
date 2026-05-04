@@ -982,11 +982,10 @@ function buildTransferUI(){
         <img src="${r.dataUrl}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;flex-shrink:0">
         <div style="flex:1;min-width:0">
           <div style="font-size:10px;color:var(--muted);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.origName}</div>
-          ${r.aiDone?`<div style="font-size:12px;font-weight:700;color:#7c3aed;word-break:break-all">✅ ${r.newName||r.origName}</div>`
-            :r.aiLoading?`<div style="font-size:11px;color:var(--muted)">🤖 분석 중...</div>`
-            :`<input value="${r.newName||''}" placeholder="파일명 (AI 인식 후 자동입력)"
-              oninput="transferItems[${i}].newName=this.value"
-              style="width:100%;padding:5px 8px;font-size:11px;border:1px solid var(--bdr);border-radius:5px;font-family:inherit;outline:none">`}
+          ${r.aiDone?`<div style="font-size:12px;font-weight:700;color:#7c3aed;word-break:break-all">✅ ${r.newName}</div>`
+            :r.aiLoading?`<div style="font-size:11px;color:var(--blue)">🤖 분석 중...</div>`
+            :r.aiError?`<div style="font-size:10px;color:var(--red);margin-bottom:4px">⚠️ ${r.aiError}</div><input value="${r.newName||''}" placeholder="파일명 직접 입력" oninput="transferItems[${i}].newName=this.value" style="width:100%;padding:5px 8px;font-size:11px;border:1px solid var(--bdr);border-radius:5px;font-family:inherit;outline:none">`
+            :`<input value="${r.newName||''}" placeholder="AI 인식 전 (직접 입력 가능)" oninput="transferItems[${i}].newName=this.value" style="width:100%;padding:5px 8px;font-size:11px;border:1px solid var(--bdr);border-radius:5px;font-family:inherit;outline:none">`}
         </div>
         <button onclick="delTransferItem(${i})" style="width:28px;height:28px;border-radius:50%;border:1px solid #fca5a5;background:#fee2e2;color:var(--red);cursor:pointer;font-size:12px;flex-shrink:0">✕</button>
       </div>
@@ -1041,7 +1040,8 @@ async function aiRenameAll(){
       console.error('AI 분석 실패:',e);
       r.newName=r.origName;
       r.aiDone=false;
-      toast('⚠️ '+(i+1)+'번째 사진 인식 실패: '+e.message,'err');
+      r.aiError=e.message;
+      toast('⚠️ '+(i+1)+'번째 인식 실패: '+e.message,'err');
     }
 
     r.aiLoading=false;
