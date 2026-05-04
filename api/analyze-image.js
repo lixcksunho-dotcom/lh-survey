@@ -43,8 +43,10 @@ export default async function handler(req, res) {
 
     const data = await response.json();
     const text = data.content?.[0]?.text || '{}';
+    console.log('Claude 응답 텍스트:', text);
     const match = text.match(/\{[\s\S]*\}/);
     const result = match ? JSON.parse(match[0]) : {};
+    console.log('파싱 결과:', JSON.stringify(result));
     res.status(200).json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
